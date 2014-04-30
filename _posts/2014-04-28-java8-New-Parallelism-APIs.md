@@ -69,4 +69,4 @@ Integer[]  prims = numbers.parallelStream().filter(s -> Utility.isPrime(s))
   [5]: https://docs.google.com/file/d/0B8Q1A5m63do8OU1GNjVmM19FVU0/edit
   [6]: http://www.takipiblog.com/wp-content/uploads/2014/04/unnamed.png
   [7]: http://www.takipiblog.com/2014/04/03/new-parallelism-apis-in-java-8-behind-the-glitz-and-glamour
-  [8]: http://www.importnew.com
+  [8]: http://www.importnew.com/11113.html
