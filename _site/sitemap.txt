@@ -7,4 +7,5 @@ http://zhaox.github.io/rss.xml
 http://zhaox.github.io/sitemap.txt
 http://zhaox.github.io/tags.html
 
+http://zhaox.github.io/erlang/2014/12/12/erlang_process_link
 http://zhaox.github.io/translations/2014/04/28/java8-New-Parallelism-APIs

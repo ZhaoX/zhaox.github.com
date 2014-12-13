@@ -4,7 +4,7 @@
  <title>Xin Zhao</title>
  <link href="http://zhaox.github.io/" rel="self"/>
  <link href="http://zhaox.github.io"/>
- <updated>2014-04-29T15:51:06+08:00</updated>
+ <updated>2014-12-13T10:01:00+08:00</updated>
  <id>http://zhaox.github.io</id>
  <author>
    <name>Xin Zhao</name>
@@ -13,12 +13,137 @@
 
  
  <entry>
+   <title>Erlang进程的Link机制</title>
+   <link href="http://zhaox.github.io/erlang/2014/12/12/erlang_process_link"/>
+   <updated>2014-12-12T00:00:00+08:00</updated>
+   <id>http://zhaox.github.io/erlang/2014/12/12/erlang_process_link</id>
+   <content type="html">&lt;p&gt;&lt;strong&gt;这篇文件还不是最终版，有时间时，我会再来补充完善。&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h2&gt;什么是link&lt;/h2&gt;
+
+&lt;p&gt;Erlang程序基于进程建模，进程之间的交互机制有收发消息，link和monitor。其中，收发消息通常用于正常的进程间通讯，而link和monitor多用于异常情况处理，本文从应用的角度介绍和分析link机制。link是双向全联通的，用来将两个或多个进程绑定在一起，绑定在一起之后，VM会保证在有进程退出时，对与其绑定在一起的进程执行特定的操作。&lt;/p&gt;
+
+&lt;h2&gt;创建link和取消link&lt;/h2&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;Two processes can be linked to each other. A link between two
+processes Pid1 and Pid2 is created by Pid1 calling the BIF
+link(Pid2)(or vice versa). There also exists a number a spawn_link
+BIFs, which spawns and links to a process in one operation.&lt;/p&gt;
+
+&lt;p&gt;Links are bidirectional and there can only be one link between two
+processes.Repeated calls to link(Pid) have no effect.&lt;/p&gt;
+
+&lt;p&gt;A link can be removed bycalling the BIF unlink(Pid).&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2&gt;当有进程退出时&lt;/h2&gt;
+
+&lt;h4&gt;发送Exit Signal&lt;/h4&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;When a process terminates, it will terminate with an exit reason as
+explained in Process Termination above. This exit reason is emitted in
+an exit signal to all linked processes.&lt;/p&gt;
+
+&lt;p&gt;A process can also call the function exit(Pid,Reason). This will
+result in an exit signal with exit reason Reason being emitted to Pid,
+but does not affect the calling process.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h4&gt;Exit Signal的默认处理方式&lt;/h4&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;The default behaviour when a process receives an exit signal with an
+exit reason other than normal, is to terminate and in turn emit exit
+signals with the same exit reason to its linked processes. An exit
+signal with reason normal is ignored&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h4&gt;将Exit Signal转换为普通的进程消息&lt;/h4&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;A process can be set to trap exit signals by calling:&lt;/p&gt;
+
+&lt;p&gt;process&lt;em&gt;flag(trap&lt;/em&gt;exit, true)&lt;/p&gt;
+
+&lt;p&gt;When a process is trapping exits, it will not terminate when an exit
+signal is received. Instead, the signal is transformed into a
+message{&amp;#39;EXIT&amp;#39;,FromPid,Reason} which is put into the mailbox of the
+process just like a regular message.&lt;/p&gt;
+
+&lt;p&gt;An exception to the above is if the exit reason is kill, that is if
+exit(Pid,kill) has been called. This will unconditionally terminate
+the process, regardless of if it is trapping exit signals or not.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2&gt;link与OTP的关系&lt;/h2&gt;
+
+&lt;p&gt;OTP作为Erlang官方的编程框架被广泛应用，在OTP的实现中，link机制被广泛的应用。&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;Erlang has a built-in feature for error handling between processes.
+Terminating processes will emit exit signals to all linked processes,
+which may terminate as well or handle the exit in some way. This
+feature can be used to build hierarchical program structures where
+some processes are supervising other processes, for example restarting
+them if they terminate abnormally.&lt;/p&gt;
+
+&lt;p&gt;Refer to OTP Design Principles for more information about OTP
+supervision trees, which uses this feature.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h4&gt;gen_server&lt;/h4&gt;
+
+&lt;p&gt;假设存在a，b两个进程，其中b是gen&lt;em&gt;server。我们在进程a中调用b:start&lt;/em&gt;link()，使两个进程link在一起，然后来讨论一些异常情况。&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;a进程正常退出 -&amp;gt; b进程正常运行&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;a进程异常退出 -&amp;gt; b进程退出&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;a进程正常退出, b进程中调用了process&lt;em&gt;flag(trap&lt;/em&gt;exit, true) -&amp;gt;  b进程不会收到exit msg，退出&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;a进程异常退出, b进程中调用了process&lt;em&gt;flag(trap&lt;/em&gt;exit, true) -&amp;gt;  b进程不会收到exit msg，退出&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;b进程正常退出 -&amp;gt; a进程正常运行&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;b进程异常退出 -&amp;gt; a进程退出&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;b进程正常退出, a进程中调用了process&lt;em&gt;flag(trap&lt;/em&gt;exit, true) -&amp;gt;  a进程收到{&amp;#39;EXIT&amp;#39;,Pid_b,normal}&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;b进程异常退出, a进程中调用了process&lt;em&gt;flag(trap&lt;/em&gt;exit, true) -&amp;gt;  a进程收到{&amp;#39;EXIT&amp;#39;,Pid_b,Reason}&lt;/em&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;看起来第3项和第4项不太正常，似乎跟刚刚介绍的erlang link机制冲突了。出现这种现象的原因，是gen&lt;em&gt;server不是普通进程，它在一个普通的进程上，添加一些默认的行为，具体到这个问题，就是gen&lt;/em&gt;server在收到来自父进程（调用start&lt;em&gt;link&amp;gt;的进程）的{&amp;#39;EXIT&amp;#39;,Pid&lt;/em&gt;Parent,Reason}&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;erlang language-erlang&quot; data-lang=&quot;erlang&quot;&gt;&lt;span class=&quot;nf&quot;&gt;decode_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Hib&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+     &lt;span class=&quot;k&quot;&gt;case&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;of&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;get_state&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;nn&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;handle_system_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_state&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;?&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;MODULE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                   &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]},&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Hib&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace_state&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;StateFun&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;nv&quot;&gt;NState&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;try&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;StateFun&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;catch&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;_:_&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+             &lt;span class=&quot;nn&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;handle_system_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace_state&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;?&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;MODULE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                   &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;NState&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;NState&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]},&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Hib&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Req&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;nn&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;handle_system_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Req&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;From&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;?&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;MODULE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                   &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Hib&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;&amp;#39;EXIT&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Reason&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;n&quot;&gt;terminate&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Reason&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;_&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;when&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=:=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;n&quot;&gt;handle_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+         &lt;span class=&quot;p&quot;&gt;_&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;
+             &lt;span class=&quot;nv&quot;&gt;Debug1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;handle_debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Debug&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;fun&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;print_event&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                       &lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}),&lt;/span&gt;
+             &lt;span class=&quot;n&quot;&gt;handle_msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;Msg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;State&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Mod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;Debug1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+     &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2&gt;link与业务建模&lt;/h2&gt;
+
+&lt;p&gt;待续&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
    <title>Java 8的新并行API - 魅力与炫目背后</title>
    <link href="http://zhaox.github.io/translations/2014/04/28/java8-New-Parallelism-APIs"/>
    <updated>2014-04-28T00:00:00+08:00</updated>
    <id>http://zhaox.github.io/translations/2014/04/28/java8-New-Parallelism-APIs</id>
    <content type="html">&lt;p&gt;&lt;em&gt;这是一篇译文，原文链接见&lt;a href=&quot;http://www.takipiblog.com/2014/04/03/new-parallelism-apis-in-java-8-behind-the-glitz-and-glamour&quot;&gt;这里&lt;/a&gt;。&lt;/em&gt;
-&lt;em&gt;本文同时发表在&lt;a href=&quot;http://www.importnew.com&quot;&gt;ImportNew&lt;/a&gt;上，转载请注明出处。&lt;/em&gt;&lt;/p&gt;
+&lt;em&gt;本文同时发表在&lt;a href=&quot;http://www.importnew.com/11113.html&quot;&gt;ImportNew&lt;/a&gt;上，转载请注明出处。&lt;/em&gt;&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;http://www.takipiblog.com/wp-content/uploads/2014/04/Blog_socks03.png&quot; alt=&quot;图片1&quot;&gt;&lt;/p&gt;
 
@@ -69,7 +194,7 @@
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;排序&lt;/strong&gt;现在只快了20%&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;过滤&lt;/strong&gt;现在只快了20%&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;分组&lt;/strong&gt;现在满了15%&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;分组&lt;/strong&gt;现在慢了15%&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;更高的规模和竞争水平很可能使这些数字进一步下降。原因是在一个多线程的环境中添加线程并不一定能帮助你提高计算效率，是计算机的CPU个数决定了计算效率，而不是线程个数。&lt;/p&gt;
