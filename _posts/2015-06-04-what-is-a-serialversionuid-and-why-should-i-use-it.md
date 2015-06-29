@@ -25,10 +25,12 @@ tags: [Java, Serialization]
 > declare its own serialVersionUID explicitly by  declaring a field
 > named <code>"serialVersionUID"</code> that must be static,  final, and
 > of type <code>long</code>:<p>
-> 
+ 
+ 
 >  serialVersionUID 表示可序列化类的版本，在反序列化对象时，用来确认序列化与反序列化该对象所使用的类的版本是否兼容。 
 > 如果类的版本不一致，那么反序列化将不能正常进行，抛出InvalidClassException。
-> 
+
+
 >  If a serializable class does not explicitly declare a
 > serialVersionUID, then  the serialization runtime will calculate a
 > default serialVersionUID value  for that class based on various
@@ -49,13 +51,16 @@ tags: [Java, Serialization]
 > members. Array  classes cannot declare an explicit serialVersionUID,
 > so they always have  the default computed value, but the requirement
 > for matching  serialVersionUID values is waived for array classes.
-> 
+
 >  如果一个可序列化的类没有包含serialVersionUID，运行时会根据这个类的特征自动计算出一个serialVersionUID。 
 > 那么，为什么不能用默认的这个实现呢，似乎更省事?
 > 因为不同的编译器实现会导致同一个类的源代码文件，被计算出不同的serialVersionUID.
 
 StackOverflow上有一个类似的问题：
+
 http://stackoverflow.com/questions/285793/what-is-a-serialversionuid-and-why-should-i-use-it
+
 点击下面这个链接，可以查看更多关于Serializable接口的信息：
+
 https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/io/Serializable.java
 
