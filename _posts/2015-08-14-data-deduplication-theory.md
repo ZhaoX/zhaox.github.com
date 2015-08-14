@@ -2,7 +2,7 @@
 layout: post
 title: "数据去重技术原理分析"
 description: ""
-category: 
+category: Storage
 tags: [Storage]
 ---
 {% include JB/setup %}
