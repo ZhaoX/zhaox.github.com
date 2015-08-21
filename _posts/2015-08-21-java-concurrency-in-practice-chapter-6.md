@@ -2,7 +2,7 @@
 layout: post
 title: "读Java Concurrency in Practice. 第六章."
 description: ""
-category:java
+category: java
 tags: [Java]
 ---
 {% include JB/setup %}
