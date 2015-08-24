@@ -30,6 +30,7 @@ tags: [Storage]
  3. HTTP页面加载速度提升。可以看看[这个][4]。
  
 数据去重与通常说的大家常用的数据压缩的区别，主要在于去重的粒度。数据压缩技术在比较小的范围内以比较小的粒度查找重复数据，粒度一般为几个比特到几个字节。而重复数据删除是在比较大的范围内查找大块的重复数据，一般重复数据块尺寸在1KB以上。
+![数据去重VS数据压缩][7]
 
 一个好的数据去重系统，尤其是基于内容的可变分块的数据去重系统，实现难度是比较大的。就目前来看，国内的存储系统厂商基本上还没看到好的产品出来。
 
@@ -45,3 +46,4 @@ tags: [Storage]
   [4]: https://code.google.com/p/diffable/
   [5]: http://arxiv.org/pdf/1508.01182.pdf
   [6]: https://zh.wikipedia.org/wiki/%E9%87%8D%E5%A4%8D%E6%95%B0%E6%8D%AE%E5%88%A0%E9%99%A4
+  [7]: http://7lryjt.com1.z0.glb.clouddn.com/dedup%20vs%20compression.png
