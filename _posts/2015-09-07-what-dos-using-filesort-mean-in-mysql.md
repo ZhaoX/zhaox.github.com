@@ -3,7 +3,7 @@ layout: post
 title: "在Mysql中Using filesort代表什么意思？"
 description: ""
 category: Database
-tags: [mysql]
+tags: [Mysql]
 ---
 {% include JB/setup %}
 
