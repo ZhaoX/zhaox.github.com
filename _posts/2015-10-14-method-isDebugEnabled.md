@@ -37,7 +37,7 @@ if (logger.isDebugEnabled()) {
 
 也就是说，是为了避免一些logger.debug(...)准备工作的执行，从而提高性能。至于本文提到的例子，应该属于最简单的情况，避免无用的String参数拼接。
 
-相应的，也不是只有debug级别才有这个方法，每一个log级别都有对应的enabled方法供调用。org.apache.commons.logging.Log接口的代码如下：
+相应的，也不是只有debug级别才有这个方法，每一个log级别都有对应的enabled方法供调用。org.apache.commons.logging.Log接口的代码如下，供参考。
 
 ``` java
 public interface Log {
@@ -83,6 +83,4 @@ public interface Log {
     public void fatal(Object message, Throwable t);
 
 }
-
 ```
-
