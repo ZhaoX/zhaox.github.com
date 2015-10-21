@@ -50,6 +50,7 @@ end function
 MAC是对称加密算法，S3和Azure Storage都使用其来做请求认证。
 
 在S3中，使用的是HMAC-SHA1：
+
 ```
 Authorization = "AWS" + " " + AccessKeyId + ":" + Signature;
 Signature = 
