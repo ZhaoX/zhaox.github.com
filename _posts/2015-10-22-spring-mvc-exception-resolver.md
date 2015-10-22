@@ -7,7 +7,7 @@ tags: [Java, Web]
 ---
 {% include JB/setup %}
 
-#Spring MVC中异常处理的类体系机构
+#Spring MVC中异常处理的类体系结构
 
 下图中，我画出了Spring MVC中，跟异常处理相关的主要类和接口。
 
@@ -169,5 +169,206 @@ Spring MVC的异常处理非常的灵活，如果提供的ExceptionResolver类�
 
 #Spring MVC是如何创建和使用这些Resolver的？
 
+首先看Spring MVC是怎么加载异常处理bean的。
 
-#何时该使用何种Exception Resolver？
+1. Spring MVC有两种加载异常处理类的方式，一种是根据类型，这种情况下，会加载ApplicationContext下所有实现了ExceptionResolver接口的bean，并根据其order属性排序，依次调用；一种是根据名字，这种情况下会加载ApplicationContext下，名字为handlerExceptionResolver的bean。
+2. 不管使用那种加载方式，如果在ApplicationContext中没有找到异常处理bean，那么Spring MVC会加载默认的异常处理bean。
+3. 默认的异常处理bean定义在DispatcherServlet.properties中。
+
+``` java
+org.springframework.web.servlet.HandlerExceptionResolver=org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerExceptionResolver,\
+	org.springframework.web.servlet.mvc.annotation.ResponseStatusExceptionResolver,\
+	org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver
+```
+
+以下代码摘自ispatcherServlet，描述了异常处理类的加载过程：
+
+``` java
+/**
+ * Initialize the HandlerMappings used by this class.
+ * <p>If no HandlerMapping beans are defined in the BeanFactory for this namespace,
+ * we default to BeanNameUrlHandlerMapping.
+ */
+private void initHandlerMappings(ApplicationContext context) {
+	this.handlerMappings = null;
+
+	if (this.detectAllHandlerMappings) {
+		// Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
+		Map<String, HandlerMapping> matchingBeans =
+				BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+		if (!matchingBeans.isEmpty()) {
+			this.handlerMappings = new ArrayList<HandlerMapping>(matchingBeans.values());
+			// We keep HandlerMappings in sorted order.
+			OrderComparator.sort(this.handlerMappings);
+		}
+	}
+	else {
+		try {
+			HandlerMapping hm = context.getBean(HANDLER_MAPPING_BEAN_NAME, HandlerMapping.class);
+			this.handlerMappings = Collections.singletonList(hm);
+		}
+		catch (NoSuchBeanDefinitionException ex) {
+			// Ignore, we'll add a default HandlerMapping later.
+		}
+	}
+
+	// Ensure we have at least one HandlerMapping, by registering
+	// a default HandlerMapping if no other mappings are found.
+	if (this.handlerMappings == null) {
+		this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
+		if (logger.isDebugEnabled()) {
+			logger.debug("No HandlerMappings found in servlet '" + getServletName() + "': using default");
+		}
+	}
+}
+```
+
+然后看Spring MVC是怎么使用异常处理bean的。
+
+1. Spring MVC把请求映射和处理过程放到try catch中，捕获到异常后，使用异常处理bean进行处理。
+2. 所有异常处理bean按照order属性排序，在处理过程中，遇到第一个成功处理异常的异常处理bean之后，不再调用后续的异常处理bean。
+
+以下代码摘自DispatcherServlet，描述了处理异常的过程。
+
+``` java
+/**
+ * Process the actual dispatching to the handler.
+ * <p>The handler will be obtained by applying the servlet's HandlerMappings in order.
+ * The HandlerAdapter will be obtained by querying the servlet's installed HandlerAdapters
+ * to find the first that supports the handler class.
+ * <p>All HTTP methods are handled by this method. It's up to HandlerAdapters or handlers
+ * themselves to decide which methods are acceptable.
+ * @param request current HTTP request
+ * @param response current HTTP response
+ * @throws Exception in case of any kind of processing failure
+ */
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+	HttpServletRequest processedRequest = request;
+	HandlerExecutionChain mappedHandler = null;
+	boolean multipartRequestParsed = false;
+
+	WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+
+	try {
+		ModelAndView mv = null;
+		Exception dispatchException = null;
+
+		try {
+			processedRequest = checkMultipart(request);
+			multipartRequestParsed = (processedRequest != request);
+
+			// Determine handler for the current request.
+			mappedHandler = getHandler(processedRequest);
+			if (mappedHandler == null || mappedHandler.getHandler() == null) {
+				noHandlerFound(processedRequest, response);
+				return;
+			}
+
+			// Determine handler adapter for the current request.
+			HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+
+			// Process last-modified header, if supported by the handler.
+			String method = request.getMethod();
+			boolean isGet = "GET".equals(method);
+			if (isGet || "HEAD".equals(method)) {
+				long lastModified = ha.getLastModified(request, mappedHandler.getHandler());
+				if (logger.isDebugEnabled()) {
+					logger.debug("Last-Modified value for [" + getRequestUri(request) + "] is: " + lastModified);
+				}
+				if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {
+					return;
+				}
+			}
+
+			if (!mappedHandler.applyPreHandle(processedRequest, response)) {
+				return;
+			}
+
+			// Actually invoke the handler.
+			mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+
+			if (asyncManager.isConcurrentHandlingStarted()) {
+				return;
+			}
+
+			applyDefaultViewName(request, mv);
+			mappedHandler.applyPostHandle(processedRequest, response, mv);
+		}
+		catch (Exception ex) {
+			dispatchException = ex;
+		}
+		processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
+	}
+	catch (Exception ex) {
+		triggerAfterCompletion(processedRequest, response, mappedHandler, ex);
+	}
+	catch (Error err) {
+		triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err);
+	}
+	finally {
+		if (asyncManager.isConcurrentHandlingStarted()) {
+			// Instead of postHandle and afterCompletion
+			if (mappedHandler != null) {
+				mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);
+			}
+		}
+		else {
+			// Clean up any resources used by a multipart request.
+			if (multipartRequestParsed) {
+				cleanupMultipart(processedRequest);
+			}
+		}
+	}
+}
+
+
+/**
+ * Determine an error ModelAndView via the registered HandlerExceptionResolvers.
+ * @param request current HTTP request
+ * @param response current HTTP response
+ * @param handler the executed handler, or {@code null} if none chosen at the time of the exception
+ * (for example, if multipart resolution failed)
+ * @param ex the exception that got thrown during handler execution
+ * @return a corresponding ModelAndView to forward to
+ * @throws Exception if no error ModelAndView found
+ */
+protected ModelAndView processHandlerException(HttpServletRequest request, HttpServletResponse response,
+		Object handler, Exception ex) throws Exception {
+
+	// Check registered HandlerExceptionResolvers...
+	ModelAndView exMv = null;
+	for (HandlerExceptionResolver handlerExceptionResolver : this.handlerExceptionResolvers) {
+		exMv = handlerExceptionResolver.resolveException(request, response, handler, ex);
+		if (exMv != null) {
+			break;
+		}
+	}
+	if (exMv != null) {
+		if (exMv.isEmpty()) {
+			request.setAttribute(EXCEPTION_ATTRIBUTE, ex);
+			return null;
+		}
+		// We might still need view name translation for a plain error model...
+		if (!exMv.hasView()) {
+			exMv.setViewName(getDefaultViewName(request));
+		}
+		if (logger.isDebugEnabled()) {
+			logger.debug("Handler execution resulted in exception - forwarding to resolved error view: " + exMv, ex);
+		}
+		WebUtils.exposeErrorRequestAttributes(request, ex, getServletName());
+		return exMv;
+	}
+
+	throw ex;
+}
+```
+
+#何时该使用何种ExceptionResolver？
+
+Spring提供了很多选择和非常灵活的使用方式，下面是一些使用建议：
+
+1. 如果自定义异常类，考虑加上@ResponseStatus注解；
+2. 对于没有@ResponseStatus注解的异常，可以通过使用@ExceptionHandler+@ControllerAdvice，或者通过配置SimpleMappingExceptionResolver，来为整个Web应用提供统一的异常处理。
+3. 如果应用中有些异常处理方式，只针对特定的Controller使用，那么在这个Controller中使用@ExceptionHandler注解。
+4. 不要使用过多的异常处理方式，不然的话，维护起来会很苦恼，因为异常的处理分散在很多不同的地方。
+
