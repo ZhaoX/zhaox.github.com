@@ -10,10 +10,10 @@ tags: [Erlang, EPMD]
 今天有同事说他机器上的leofs启动不了。我用console起了一下，发现报如下错：
 
 ``` erlang
-{error_logger,{{2015,11,3},{6,23,6}},"Protocol: ~tp: register/listen error: ~tp~n",["inet_tcp",econnrefused]}
-{error_logger,{{2015,11,3},{6,23,6}},crash_report,[[{initial_call,{net_kernel,init,['Argument__1']}},{pid,<0.601.0>},{registered_name,[]},{error_info,{exit,{error,badarg},[{gen_server,init_it,6,[{file,"gen_server.erl"},{line,322}]},{proc_lib,init_p_do_apply,3,[{file,"proc_lib.erl"},{line,237}]}]}},{ancestors,[net_sup,kernel_sup,<0.591.0>]},{messages,[]},{links,[#Port<0.1236>,<0.598.0>]},{dictionary,[{longnames,true}]},{trap_exit,true},{status,running},{heap_size,610},{stack_size,27},{reductions,774}],[]]}
-{error_logger,{{2015,11,3},{6,23,6}},supervisor_report,[{supervisor,{local,net_sup}},{errorContext,start_error},{reason,{'EXIT',nodistribution}},{offender,[{pid,undefined},{name,net_kernel},{mfargs,{net_kernel,start_link,[['manager_0@192.168.1.132',longnames]]}},{restart_type,permanent},{shutdown,2000},{child_type,worker}]}]}
-{error_logger,{{2015,11,3},{6,23,6}},supervisor_report,[{supervisor,{local,kernel_sup}},{errorContext,start_error},{reason,{shutdown,{failed_to_start_child,net_kernel,{'EXIT',nodistribution}}}},{offender,[{pid,undefined},{name,net_sup},{mfargs,{erl_distribution,start_link,[]}},{restart_type,permanent},{shutdown,infinity},{child_type,supervisor}]}]}
+{error_logger,{2015,11,3},{6,23,6},"Protocol: ~tp: register/listen error: ~tp~n",["inet_tcp",econnrefused]}
+{error_logger,{2015,11,3},{6,23,6},crash_report,[[{initial_call,{net_kernel,init,['Argument__1']},{pid,<0.601.0>},{registered_name,[]},{error_info,{exit,{error,badarg},[{gen_server,init_it,6,[{file,"gen_server.erl"},{line,322}]},{proc_lib,init_p_do_apply,3,[{file,"proc_lib.erl"},{line,237}]}]},{ancestors,[net_sup,kernel_sup,<0.591.0>]},{messages,[]},{links,[#Port<0.1236>,<0.598.0>]},{dictionary,[{longnames,true}]},{trap_exit,true},{status,running},{heap_size,610},{stack_size,27},{reductions,774}],[]]}
+{error_logger,{2015,11,3},{6,23,6},supervisor_report,[{supervisor,{local,net_sup},{errorContext,start_error},{reason,{'EXIT',nodistribution},{offender,[{pid,undefined},{name,net_kernel},{mfargs,{net_kernel,start_link,[['manager_0@192.168.1.132',longnames]]},{restart_type,permanent},{shutdown,2000},{child_type,worker}]}]}
+{error_logger,{2015,11,3},{6,23,6},supervisor_report,[{supervisor,{local,kernel_sup},{errorContext,start_error},{reason,{shutdown,{failed_to_start_child,net_kernel,{'EXIT',nodistribution},{offender,[{pid,undefined},{name,net_sup},{mfargs,{erl_distribution,start_link,[]},{restart_type,permanent},{shutdown,infinity},{child_type,supervisor}]}]}
 ...
 ```
 怀疑是EPMD有问题。尝试erl，可以正常启动；尝试erl -name test@127.0.0.1，报类似的错误。

@@ -3,7 +3,7 @@ layout: post
 title: "Spring MVC异常处理详解"
 description: ""
 category: Java
-tags: [Java, Web]
+tags: [Java, Web, Spring]
 ---
 {% include JB/setup %}
 
