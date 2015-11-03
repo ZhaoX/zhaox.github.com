@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "解决erlang节点启动失败报["inet_tcp",econnrefused]的问题"
+title: "解决erlang节点启动失败报inet_tcp econnrefused的问题"
 description: ""
 category: Erlang
 tags: [Erlang, EPMD]
