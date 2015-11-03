@@ -4,7 +4,7 @@ title: Hello
 ---
 {% include JB/setup %}
 
-Hi, I am Zhaoxin.  
+Hi，
 
 点击右上角的菜单，可以查看我的博客内容。
   
