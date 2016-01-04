@@ -15,7 +15,7 @@ tags: [Web, Http]
 
 ####缓存在哪儿？
 
-![HttpCache](http://zhaox.github.io/assets/images/HttpsRole.png)
+![HttpCache](http://zhaox.github.io/assets/images/HttpCache.png)
 
 上图中有三个角色，浏览器、Web代理和服务器，如图所示Http缓存存在于浏览器和Web代理中。当然在服务器内部，也存在着各种缓存，但这已经不是本文要讨论的Http缓存了。所谓的Http缓存控制，就是一种约定，通过设置不同的响应头Cache-Control来控制浏览器和Web代理对缓存的使用策略，通过设置请求头If-None-Match和响应头ETag，来对缓存的有效性进行验证。
 
