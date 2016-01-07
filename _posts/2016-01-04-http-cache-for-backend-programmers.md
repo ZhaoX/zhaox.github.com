@@ -7,7 +7,7 @@ tags: [Web, Http]
 ---
 {% include JB/setup %}
 
-> There only two hard things in Computer Science: cache invalidation and naming things.
+> There are only two hard things in Computer Science: cache invalidation and naming things.
 
 > -- Phil Karlton
 
@@ -41,7 +41,7 @@ ETag全称Entity Tag，用来标识一个资源。在具体的实现中，ETag�
 
 > Cache-Control 头在 HTTP/1.1 规范中定义，取代了之前用来定义响应缓存策略的头（例如 Expires）。当前的所有浏览器都支持 Cache-Control，因此，使用它就够了。
 
-以下我来介绍可以再Cache-Control中设置的常用指令。
+以下我来介绍可以在Cache-Control中设置的常用指令。
 
 ######max-age
 该指令指定从当前请求开始，允许获取的响应被重用的最长时间（单位为秒。例如：Cache-Control:max-age=60表示响应可以再缓存和重用 60 秒。需要注意的是，在max-age指定的时间之内，浏览器不会向服务器发送任何请求，包括验证缓存是否有效的请求，也就是说，如果在这段时间之内，服务器上的资源发生了变化，那么浏览器将不能得到通知，而使用老版本的资源。所以在设置缓存时间的长度时，需要慎重。
