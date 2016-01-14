@@ -93,3 +93,21 @@ SVG是很多种矢量图中的一种，它的特点是使用XML来描述图片�
 SVG并非只能绘制简单的Logo类的图片，它可以绘制出精致的图片的，比如下面这涨，嗯。
 
 ![SVG](http://zhaox.github.io/assets/images/SVG.png)
+
+####WebP
+
+WebP是谷歌开发的一种新图片格式，WebP是同时支持有损和无损压缩的、使用直接色的、点阵图。
+
+从名字就可以看出来它是为Web而生的，什么叫为Web而生呢？就是说相同质量的图片，WebP具有更小的文件体积。现在网站上充满了大量的图片，如果能够降低每一个图片的文件大小，那么将大大减少浏览器和服务器之间的数据传输量，进而降低访问延迟，提升访问体验。
+
+- 在无损压缩的情况下，相同质量的WebP图片，文件大小要比PNG小26%；
+- 在有损压缩的情况下，具有相同图片精度的WebP图片，文件大小要比JPEG小25%~34%；
+- WebP图片格式支持图片透明度，一个无损压缩的WebP图片，如果要支持透明度只需要22%的格外文件大小。
+
+想象Web上的图片之多，百分之几十的提升，是非常非常大的优化。只可惜，目前只有Chrome浏览器和Opera浏览器支持WebP格式，所以WebP的应用并不广泛。为了使用更先进的技术，比如WebP图片格式，来压缩互联网上传输的数据流量，谷歌甚至提供了Chrome Data Compression Proxy，设置了Chrome Data Compression Proxy作为Web代理之后，你访问的所有网站中的图片，在经过Proxy的时候，都会被转换成WebP格式，以降低图片文件的大小。
+
+####reference
+[http://stackoverflow.com/questions/2336522/png-vs-gif-vs-jpeg-vs-svg-when-best-to-use](http://stackoverflow.com/questions/2336522/png-vs-gif-vs-jpeg-vs-svg-when-best-to-use)
+[https://zh.wikipedia.org/wiki/%E5%8F%AF%E7%B8%AE%E6%94%BE%E5%90%91%E9%87%8F%E5%9C%96%E5%BD%A2](https://zh.wikipedia.org/wiki/%E5%8F%AF%E7%B8%AE%E6%94%BE%E5%90%91%E9%87%8F%E5%9C%96%E5%BD%A2)
+[https://developers.google.com/speed/webp/](https://developers.google.com/speed/webp/)
+<<High Performance Browser Networking>> --Ilya Grigorik
