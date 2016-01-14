@@ -65,7 +65,7 @@ PNG全称Portable Network Graphics，PNG-8是PNG的索引色版本。PNG-8是无
 PNG是一种比较新的图片格式，PNG-8是非常好的GIF格式替代者，在可能的情况下，应该尽可能的使用PNG-8而不是GIF，因为在相同的图片效果下，PNG-8具有更小的文件体积。除此之外，PNG-8还支持透明度的调节，而GIF并不支持。
 现在，除非需要动画的支持，否则我们没有理由使用GIF而不是PNG-8。当然了，PNG-8本身也是支持动画的，只是浏览器支持得不好，不像GIF那样受到广泛的支持。
 
-[PNG-8 vs GIF](http://zhaox.github.io/assets/images/PNG8vsGIF.png)
+![PNG-8 vs GIF](http://zhaox.github.io/assets/images/PNG8vsGIF.png)
 
 可以看到PNG-8具有更好的透明度支持。
 
