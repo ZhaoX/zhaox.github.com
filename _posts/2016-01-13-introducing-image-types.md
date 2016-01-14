@@ -80,3 +80,15 @@ PNG-24是PNG的直接色版本。PNG-24是无损的、使用直接色的、点�
 另外，PNG-24跟PNG-8一样，是支持图片透明度的。
 
 ####SVG
+
+全称Scalable Vector Graphics，是无损的、矢量图。
+
+SVG跟上面这些图片格式最大的不同，是SVG是矢量图。这意味着SVG图片由直线和曲线以及绘制它们的方法组成。当你放大一个SVG图片的时候，你看到的还是线和曲线，而不会出现像素点。这意味着SVG图片在放大时，不会失真，所以它非常适合用来绘制企业Logo、Icon等。
+
+![SVG vs PNG-8](http://zhaox.github.io/assets/images/SVGvsPNG8.png)
+
+SVG是很多种矢量图中的一种，它的特点是使用XML来描述图片。借助于前几年XML技术的流行，SVG也流行了很多。使用XML的优点是，任何时候你都可以把它当做一个文本文件来对待，也就是说，你可以非常方便的修改SVG图片，你所需要的只需要一个文本编辑器。
+
+SVG并非只能绘制简单的Logo类的图片，它可以绘制出精致的图片，比如下面这涨，嗯。
+
+![SVG](http://zhaox.github.io/assets/images/SVG.png)
