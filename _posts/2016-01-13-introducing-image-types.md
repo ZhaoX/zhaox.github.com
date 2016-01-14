@@ -110,4 +110,4 @@ WebP是谷歌开发的一种新图片格式，WebP是同时支持有损和无损
 [http://stackoverflow.com/questions/2336522/png-vs-gif-vs-jpeg-vs-svg-when-best-to-use](http://stackoverflow.com/questions/2336522/png-vs-gif-vs-jpeg-vs-svg-when-best-to-use)
 [https://zh.wikipedia.org/wiki/%E5%8F%AF%E7%B8%AE%E6%94%BE%E5%90%91%E9%87%8F%E5%9C%96%E5%BD%A2](https://zh.wikipedia.org/wiki/%E5%8F%AF%E7%B8%AE%E6%94%BE%E5%90%91%E9%87%8F%E5%9C%96%E5%BD%A2)
 [https://developers.google.com/speed/webp/](https://developers.google.com/speed/webp/)
-[High Performance Browser Networking]() --Ilya Grigorik
+[High Performance Browser Networking](High Performance Browser Networking) by Ilya Grigorik
