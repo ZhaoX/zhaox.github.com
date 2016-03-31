@@ -41,7 +41,7 @@ public class RootController {
 
 然后是一个使用了两个Spring注解的RootController类，我们在main方法中，没有直接使用这个类。
 
-### SpringApplication的静态run方法
+### SpringApplication类的静态run方法
 
 ``` java
 
@@ -289,18 +289,234 @@ org.springframework.boot.logging.LoggingApplicationListener
 
 也就是说，在我们的例子中，listener最终会被初始化为ParentContextCloserApplicationListener，FileEncodingApplicationListener，AnsiOutputApplicationListener，ConfigFileApplicationListener，DelegatingApplicationListener，LiquibaseServiceLocatorApplicationListener，ClasspathLoggingApplicationListener，LoggingApplicationListener这几个类的对象组成的list。
 
+### 最后是mainApplicationClass
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+private Class<?> mainApplicationClass;
+
+private void initialize(Object[] sources) {
+	...
+	// 为成员变量mainApplicationClass赋值
+	this.mainApplicationClass = deduceMainApplicationClass();
+	...
+}
+
+private Class<?> deduceMainApplicationClass() {
+	try {
+		StackTraceElement[] stackTrace = new RuntimeException().getStackTrace();
+		for (StackTraceElement stackTraceElement : stackTrace) {
+			if ("main".equals(stackTraceElement.getMethodName())) {
+				return Class.forName(stackTraceElement.getClassName());
+			}
+		}
+	}
+	catch (ClassNotFoundException ex) {
+		// Swallow and continue
+	}
+	return null;
+}
+
+```
+
+在deduceMainApplicationClass方法中，通过获取当前调用栈，找到入口方法main所在的类，并将其复制给SpringApplication对象的成员变量mainApplicationClass。
+
+### SpringApplication对象的run方法
+
+经过上面的初始化过程，我们已经有了一个SpringApplication对象，根据SpringApplication类的静态run方法一节中的分析，接下来会调用SpringApplication对象的run方法。我们接下来就分析这个对象的run方法。
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+public ConfigurableApplicationContext run(String... args) {
+	StopWatch stopWatch = new StopWatch();
+	stopWatch.start();
+	ConfigurableApplicationContext context = null;
+	configureHeadlessProperty();
+	SpringApplicationRunListeners listeners = getRunListeners(args);
+	listeners.started();
+	try {
+		ApplicationArguments applicationArguments = new DefaultApplicationArguments(
+				args);
+		context = createAndRefreshContext(listeners, applicationArguments);
+		afterRefresh(context, applicationArguments);
+		listeners.finished(context, null);
+		stopWatch.stop();
+		if (this.logStartupInfo) {
+			new StartupInfoLogger(this.mainApplicationClass)
+					.logStarted(getApplicationLog(), stopWatch);
+		}
+		return context;
+	}
+	catch (Throwable ex) {
+		handleRunFailure(context, listeners, ex);
+		throw new IllegalStateException(ex);
+	}
+}
+
+```
+
+可变个数参数args即是我们整个应用程序的入口main方法的参数，在我们的例子中，参数个数为零。
+
+StopWatch是来自org.springframework.util的工具类，可以用来方便的记录程序的运行时间。
+
+SpringApplication对象的run方法创建并刷新ApplicationContext，真正执行程序。下面按照执行顺序，介绍该方法所做的工作。
+
+### headless模式
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+private static final String SYSTEM_PROPERTY_JAVA_AWT_HEADLESS = "java.awt.headless";
+private boolean headless = true;
+
+public ConfigurableApplicationContext run(String... args) {
+	...
+	//设置headless模式
+        configureHeadlessProperty();
+	...
+}
+
+private void configureHeadlessProperty() {
+	System.setProperty(SYSTEM_PROPERTY_JAVA_AWT_HEADLESS, System.getProperty(
+			SYSTEM_PROPERTY_JAVA_AWT_HEADLESS, Boolean.toString(this.headless)));
+}
+
+```
+
+实际上是就是设置系统属性java.awt.headless，在我们的例子中该属性会被设置为true，因为我们开发的是服务器程序，一般运行在没有显示器和键盘的环境。关于java中的headless模式，更多信息可以参考[这里](http://www.oracle.com/technetwork/articles/javase/headless-136834.html)。
+
+### SpringApplicationRunListeners
 
 
+``` java
 
+以下代码摘自：org.springframework.boot.SpringApplication
 
+public ConfigurableApplicationContext run(String... args) {
+	...
+	SpringApplicationRunListeners listeners = getRunListeners(args);
+	listeners.started();
+	/**
+         * 创建并刷新ApplicationContext
+         * context = createAndRefreshContext(listeners, applicationArguments); 
+        **/
+	listeners.finished(context, null);
+	...
+}
 
+private SpringApplicationRunListeners getRunListeners(String[] args) {
+	Class<?>[] types = new Class<?>[] { SpringApplication.class, String[].class };
+	return new SpringApplicationRunListeners(logger, getSpringFactoriesInstances(
+			SpringApplicationRunListener.class, types, this, args));
+}
 
+```
 
+run方法中，加载了一系列SpringApplicationRunListener对象，在创建和更新ApplicationContext方法前后分别调用了listeners对象的started方法和finished方法, 并在创建和刷新ApplicationContext时，将listeners作为参数传递了下去。。
 
+同时，可以看到，加载SpringApplicationRunListener时，使用的是跟加载ApplicationContextInitializer和ApplicationListener时一样的方法。那么加载了什么，就可以从spring.factories文件中看到了：
 
+``` java
 
+以下内容摘自spring-boot-1.3.3.RELEASE.jar中的资源文件META-INF/spring.factories
 
+# Run Listeners
+org.springframework.boot.SpringApplicationRunListener=\
+org.springframework.boot.context.event.EventPublishingRunListener
 
+```
+
+可以看到，在我们的例子中加载的是org.springframework.boot.context.event.EventPublishingRunListener。这样一来，我们就可以看一看这个SpringApplicationRunListener究竟做了点什么工作了？
+
+``` java
+
+以下代码摘自：org.springframework.boot.context.event.EventPublishingRunListener
+
+public EventPublishingRunListener(SpringApplication application, String[] args) {
+	this.application = application;
+	this.args = args;
+	this.multicaster = new SimpleApplicationEventMulticaster();
+	for (ApplicationListener<?> listener : application.getListeners()) {
+		this.multicaster.addApplicationListener(listener);
+	}
+}
+
+@Override
+public void started() {
+	publishEvent(new ApplicationStartedEvent(this.application, this.args));
+}
+
+@Override
+public void finished(ConfigurableApplicationContext context, Throwable exception) {
+	publishEvent(getFinishedEvent(context, exception));
+}
+
+```
+
+EventPublishingRunListener在对象初始化时，将SpringApplication对象的成员变量listeners全都保存下来，然后在started和finished方法被调用时，向保存起来的listeners们发布启动和结束事件。
+
+*********
+【需要补充】，listeners在观察到started事件时，都做了什么。
+*********
+
+### 创建并刷新ApplicationContext
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+public ConfigurableApplicationContext run(String... args) {
+	...
+	try {
+		ApplicationArguments applicationArguments = new DefaultApplicationArguments(
+				args);
+		context = createAndRefreshContext(listeners, applicationArguments);
+		afterRefresh(context, applicationArguments);
+		...
+	}
+	catch (Throwable ex) {
+		handleRunFailure(context, listeners, ex);
+		throw new IllegalStateException(ex);
+	}
+}
+
+```
+
+首先是创建一个DefaultApplicationArguments对象，之后调用createAndRefreshContext方法创建并刷新一个ApplicationContext，最后调用afterRefresh方法在刷新之后做一些操作。
+
+先来看看DefaultApplicationArguments吧：
+
+``` java 
+
+以下代码摘自：org.springframework.boot.DefaultApplicationArguments
+
+DefaultApplicationArguments(String[] args) {
+	Assert.notNull(args, "Args must not be null");
+	this.source = new Source(args);
+	this.args = args;
+}
+
+private static class Source extends SimpleCommandLinePropertySource {
+
+	Source(String[] args) {
+		super(args);
+	}
+	...
+}
+
+以下代码摘自：org.springframework.core.env.SimpleCommandLinePropertySource
+
+public SimpleCommandLinePropertySource(String... args) {
+	super(new SimpleCommandLineArgsParser().parse(args));
+}
+
+```
+可以看到是把main函数的args参数当做一个PropertySource来解析。我们的例子中，args的长度为0，所以这里创建的DefaultApplicationArguments也没有实际的内容。
 
 
 
