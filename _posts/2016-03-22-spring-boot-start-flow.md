@@ -367,11 +367,11 @@ public ConfigurableApplicationContext run(String... args) {
 
 ```
 
-可变个数参数args即是我们整个应用程序的入口main方法的参数，在我们的例子中，参数个数为零。
+- 可变个数参数args即是我们整个应用程序的入口main方法的参数，在我们的例子中，参数个数为零。
 
-StopWatch是来自org.springframework.util的工具类，可以用来方便的记录程序的运行时间。
+- StopWatch是来自org.springframework.util的工具类，可以用来方便的记录程序的运行时间。
 
-SpringApplication对象的run方法创建并刷新ApplicationContext，真正执行程序。下面按照执行顺序，介绍该方法所做的工作。
+SpringApplication对象的run方法创建并刷新ApplicationContext，算是开始进入正题了。下面按照执行顺序，介绍该方法所做的工作。
 
 ### headless模式
 
@@ -425,7 +425,7 @@ private SpringApplicationRunListeners getRunListeners(String[] args) {
 
 ```
 
-run方法中，加载了一系列SpringApplicationRunListener对象，在创建和更新ApplicationContext方法前后分别调用了listeners对象的started方法和finished方法, 并在创建和刷新ApplicationContext时，将listeners作为参数传递了下去。。
+run方法中，加载了一系列SpringApplicationRunListener对象，在创建和更新ApplicationContext方法前后分别调用了listeners对象的started方法和finished方法, 并在创建和刷新ApplicationContext时，将listeners作为参数传递到了createAndRefreshContext方法中，以便在创建和刷新ApplicationContext的不同阶段，调用listeners的相应方法以执行操作。所以，所谓的SpringApplicationRunListeners实际上就是在SpringApplication对象的run方法执行的不同阶段，去执行一些操作，并且这些操作是可配置的。
 
 同时，可以看到，加载SpringApplicationRunListener时，使用的是跟加载ApplicationContextInitializer和ApplicationListener时一样的方法。那么加载了什么，就可以从spring.factories文件中看到了：
 
@@ -439,7 +439,7 @@ org.springframework.boot.context.event.EventPublishingRunListener
 
 ```
 
-可以看到，在我们的例子中加载的是org.springframework.boot.context.event.EventPublishingRunListener。这样一来，我们就可以看一看这个SpringApplicationRunListener究竟做了点什么工作了？
+可以看到，在我们的例子中加载的是org.springframework.boot.context.event.EventPublishingRunListener。我们看一看这个SpringApplicationRunListener究竟做了点什么工作了？
 
 ``` java
 
@@ -460,17 +460,99 @@ public void started() {
 }
 
 @Override
+public void environmentPrepared(ConfigurableEnvironment environment) {
+	publishEvent(new ApplicationEnvironmentPreparedEvent(this.application, this.args,
+			environment));
+}
+
+@Override
+public void contextPrepared(ConfigurableApplicationContext context) {
+	registerApplicationEventMulticaster(context);
+}
+
+@Override
+public void contextLoaded(ConfigurableApplicationContext context) {
+	for (ApplicationListener<?> listener : this.application.getListeners()) {
+		if (listener instanceof ApplicationContextAware) {
+			((ApplicationContextAware) listener).setApplicationContext(context);
+		}
+		context.addApplicationListener(listener);
+	}
+	publishEvent(new ApplicationPreparedEvent(this.application, this.args, context));
+}
+
+@Override
 public void finished(ConfigurableApplicationContext context, Throwable exception) {
 	publishEvent(getFinishedEvent(context, exception));
 }
 
 ```
 
-EventPublishingRunListener在对象初始化时，将SpringApplication对象的成员变量listeners全都保存下来，然后在started和finished方法被调用时，向保存起来的listeners们发布启动和结束事件。
+EventPublishingRunListener在对象初始化时，将SpringApplication对象的成员变量listeners全都保存下来，然后在自己的public方法被调用时，发布相应的事件，或执行相应的操作。可以说这个RunListener是在SpringApplication对象的run方法执行到不同的阶段时，发布相应的event给SpringApplication对象的成员变量listeners中记录的事件监听器。
 
-*********
-【需要补充】，listeners在观察到started事件时，都做了什么。
-*********
+下图画出了SpringApplicationRunListeners相关的类结构，虽然我们的例子中只有一个SpringApplicationRunListener，但在这样的设计下，想要扩展是非常容易的！
+
+![SpringBootApplicationContextInitializer](http://zhaox.github.io/assets/images/SpringBootSpringApplicationRunListener.png)
+
+接下来，我们看一下在调用listeners的started方法。在我们的例子中，也就是发布了ApplicationStartedEvent时，我们已经加载的事件监听器都做了什么操作。至于其它事件的发布，我们按照代码执行的顺序在后面的章节在介绍。
+
+- ParentContextCloserApplicationListener不监听ApplicationStartedEvent，没有操作；
+- FileEncodingApplicationListener不监听ApplicationStartedEvent，没有操作；
+- AnsiOutputApplicationListener不监听ApplicationStartedEvent，没有操作；
+- ConfigFileApplicationListener不监听ApplicationStartedEvent，没有操作；
+- DelegatingApplicationListener不监听ApplicationStartedEvent，没有操作；
+- LiquibaseServiceLocatorApplicationListener监听ApplicationStartedEvent，会检查classpath中是否有liquibase.servicelocator.ServiceLocator并做相应操作；
+
+``` java
+
+以下代码摘自：org.springframework.boot.liquibase.LiquibaseServiceLocatorApplicationListener
+
+@Override
+public void onApplicationEvent(ApplicationStartedEvent event) {
+	if (ClassUtils.isPresent("liquibase.servicelocator.ServiceLocator", null)) {
+		new LiquibasePresent().replaceServiceLocator();
+	}
+}
+
+```
+
+- ClasspathLoggingApplicationListener监听ApplicationStartedEvent，会打印classpath到debug日志； 
+
+``` java
+
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationStartedEvent) {
+		if (this.logger.isDebugEnabled()) {
+			this.logger.debug("Application started with classpath: " + getClasspath());
+	}
+	...
+}
+
+```
+
+- LoggingApplicationListener监听ApplicationStartedEvent，会根据配置初始化相应的日志系统； 
+
+``` java
+
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationStartedEvent) {
+		onApplicationStartedEvent((ApplicationStartedEvent) event);
+	}
+	...
+}
+
+private void onApplicationStartedEvent(ApplicationStartedEvent event) {
+	this.loggingSystem = LoggingSystem
+			.get(event.getSpringApplication().getClassLoader());
+	this.loggingSystem.beforeInitialize();
+}
+
+```
+
+好了，ApplicationStartedEvent事件的处理这样就结束了，以后在介绍事件处理的时候，我们只介绍监听该事件的监听器的操作，而不监听的，就不再说明了。
+
 
 ### 创建并刷新ApplicationContext
 
