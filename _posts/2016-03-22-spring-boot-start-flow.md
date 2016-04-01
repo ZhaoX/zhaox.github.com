@@ -243,6 +243,10 @@ private <T> List<T> createSpringFactoriesInstances(Class<T> type,
 
 所以在我们的例子中，SpringApplication对象的成员变量initalizers就被初始化为，ConfigurationWarningsApplicationContextInitializer，ContextIdApplicationContextInitializer，DelegatingApplicationContextInitializer，ServerPortInfoApplicationContextInitializer这四个类的对象组成的list。
 
+下图画出了加载的ApplicationContextInitializer，并说明了他们的作用。至于何时应用他们，且听后面慢慢分解。
+
+![SpringBootApplicationContextInitializer](http://zhaox.github.io/assets/images/SpringBootApplicationContextInitializer.png)
+
 
 ### 接下来是成员变量listeners
 
@@ -288,6 +292,10 @@ org.springframework.boot.logging.LoggingApplicationListener
 ```
 
 也就是说，在我们的例子中，listener最终会被初始化为ParentContextCloserApplicationListener，FileEncodingApplicationListener，AnsiOutputApplicationListener，ConfigFileApplicationListener，DelegatingApplicationListener，LiquibaseServiceLocatorApplicationListener，ClasspathLoggingApplicationListener，LoggingApplicationListener这几个类的对象组成的list。
+
+下图画出了加载的ApplicationListener，并说明了他们的作用。至于他们何时会被触发，等事件出现时，我们再说明。
+
+![SpringBootApplicationContextInitializer](http://zhaox.github.io/assets/images/SpringBootApplicationListener.png)
 
 ### 最后是mainApplicationClass
 
@@ -523,4 +531,6 @@ public SimpleCommandLinePropertySource(String... args) {
 
 
 
+### 总结
 
+- 扩展性好
