@@ -295,7 +295,7 @@ org.springframework.boot.logging.LoggingApplicationListener
 
 下图画出了加载的ApplicationListener，并说明了他们的作用。至于他们何时会被触发，等事件出现时，我们再说明。
 
-![SpringBootApplicationContextInitializer](http://zhaox.github.io/assets/images/SpringBootApplicationListener.png)
+![SpringBootApplicationListener](http://zhaox.github.io/assets/images/SpringBootApplicationListener.png)
 
 ### 最后是mainApplicationClass
 
@@ -329,7 +329,7 @@ private Class<?> deduceMainApplicationClass() {
 
 ```
 
-在deduceMainApplicationClass方法中，通过获取当前调用栈，找到入口方法main所在的类，并将其复制给SpringApplication对象的成员变量mainApplicationClass。
+在deduceMainApplicationClass方法中，通过获取当前调用栈，找到入口方法main所在的类，并将其复制给SpringApplication对象的成员变量mainApplicationClass。在我们的例子中mainApplicationClass即是我们自己编写的Application类。
 
 ### SpringApplication对象的run方法
 
@@ -516,6 +516,8 @@ public void onApplicationEvent(ApplicationStartedEvent event) {
 
 ```
 
+我们的例子中，classpath中不存在liquibase，所以不执行任何操作。
+
 - ClasspathLoggingApplicationListener监听ApplicationStartedEvent，会打印classpath到debug日志； 
 
 ``` java
@@ -529,9 +531,19 @@ public void onApplicationEvent(ApplicationEvent event) {
 	...
 }
 
+private String getClasspath() {
+	ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+	if (classLoader instanceof URLClassLoader) {
+		return Arrays.toString(((URLClassLoader) classLoader).getURLs());
+	}
+	return "unknown";
+}
+
 ```
 
-- LoggingApplicationListener监听ApplicationStartedEvent，会根据配置初始化相应的日志系统； 
+因为是debug级别的日志，而SpringBoot的默认日志级别是info级，所以我们在控制台不会看到classpath的输出。
+
+- LoggingApplicationListener监听ApplicationStartedEvent，会根据classpath中的类情况创建相应的日志系统对象，并执行一些初始化之前的操作； 
 
 ``` java
 
@@ -551,7 +563,11 @@ private void onApplicationStartedEvent(ApplicationStartedEvent event) {
 
 ```
 
-好了，ApplicationStartedEvent事件的处理这样就结束了，以后在介绍事件处理的时候，我们只介绍监听该事件的监听器的操作，而不监听的，就不再说明了。
+我们的例子中，创建的是org.springframework.boot.logging.logback.LogbackLoggingSystem类的对象，Logback是SpringBoot默认采用的日志系统。下图画出了SpringBoot中的日志系统体系：
+
+![SpringBootLoggingSystem](http://zhaox.github.io/assets/images/SpringBootLoggingSystem.png)
+
+好了，ApplicationStartedEvent事件的处理这样就结束了。以后在介绍事件处理的时候，我们只介绍监听该事件的监听器的操作，而不监听的，就不再说明了。
 
 
 ### 创建并刷新ApplicationContext
