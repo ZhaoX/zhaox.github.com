@@ -595,7 +595,7 @@ public ConfigurableApplicationContext run(String... args) {
 
 首先是创建一个DefaultApplicationArguments对象，之后调用createAndRefreshContext方法创建并刷新一个ApplicationContext，最后调用afterRefresh方法在刷新之后做一些操作。
 
-先来看看DefaultApplicationArguments吧：
+#### 先来看看DefaultApplicationArguments吧：
 
 ``` java 
 
@@ -624,7 +624,191 @@ public SimpleCommandLinePropertySource(String... args) {
 ```
 可以看到是把main函数的args参数当做一个PropertySource来解析。我们的例子中，args的长度为0，所以这里创建的DefaultApplicationArguments也没有实际的内容。
 
+#### 创建并配置ApplicationConext的Environment
 
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+private ConfigurableEnvironment environment;
+
+private boolean webEnvironment;
+
+private ConfigurableApplicationContext createAndRefreshContext(
+		SpringApplicationRunListeners listeners,
+		ApplicationArguments applicationArguments) {
+	ConfigurableApplicationContext context;
+
+	// 创建并配置Environment
+	ConfigurableEnvironment environment = getOrCreateEnvironment();
+	configureEnvironment(environment, applicationArguments.getSourceArgs());
+	listeners.environmentPrepared(environment);
+	if (isWebEnvironment(environment) && !this.webEnvironment) {
+		environment = convertToStandardEnvironment(environment);
+	}
+
+	...
+
+	return context;
+}
+
+private ConfigurableEnvironment getOrCreateEnvironment() {
+	if (this.environment != null) {
+		return this.environment;
+	}
+	if (this.webEnvironment) {
+		return new StandardServletEnvironment();
+	}
+	return new StandardEnvironment();
+}
+
+```
+
+Spring Application的Environment代表着程序运行的环境，主要包含了两种信息，一种是profiles，用来描述哪些bean definitions是可用的；一种是properties，用来描述系统的配置，其来源可能是配置文件、JVM属性文件、操作系统环境变量等等。
+
+首先要调用getOrCreateEnvironment方法获取一个Environment对象。在我们的例子中，执行到此处时，environment成员变量为null，而webEnvironment成员变量的值为true，所以会创建一个StandardServletEnvironment对象并返回。
+
+之后是调用configureEnvironment方法来配置上一步获取的Environment对象，代码如下：
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+private Map<String, Object> defaultProperties;
+
+private boolean addCommandLineProperties = true;
+
+private Set<String> additionalProfiles = new HashSet<String>();
+
+protected void configureEnvironment(ConfigurableEnvironment environment,
+		String[] args) {
+	configurePropertySources(environment, args);
+	configureProfiles(environment, args);
+}
+
+protected void configurePropertySources(ConfigurableEnvironment environment,
+		String[] args) {
+	MutablePropertySources sources = environment.getPropertySources();
+	if (this.defaultProperties != null && !this.defaultProperties.isEmpty()) {
+		sources.addLast(
+				new MapPropertySource("defaultProperties", this.defaultProperties));
+	}
+	if (this.addCommandLineProperties && args.length > 0) {
+		String name = CommandLinePropertySource.COMMAND_LINE_PROPERTY_SOURCE_NAME;
+		if (sources.contains(name)) {
+			PropertySource<?> source = sources.get(name);
+			CompositePropertySource composite = new CompositePropertySource(name);
+			composite.addPropertySource(new SimpleCommandLinePropertySource(
+					name + "-" + args.hashCode(), args));
+			composite.addPropertySource(source);
+			sources.replace(name, composite);
+		}
+		else {
+			sources.addFirst(new SimpleCommandLinePropertySource(args));
+		}
+	}
+}
+
+protected void configureProfiles(ConfigurableEnvironment environment, String[] args) {
+	environment.getActiveProfiles(); // ensure they are initialized
+	// But these ones should go first (last wins in a property key clash)
+	Set<String> profiles = new LinkedHashSet<String>(this.additionalProfiles);
+	profiles.addAll(Arrays.asList(environment.getActiveProfiles()));
+	environment.setActiveProfiles(profiles.toArray(new String[profiles.size()]));
+}
+
+```
+
+configureEnvironment方法先是调用configurePropertySources来配置properties，然后调用configureProfiles来配置profiles。
+
+configurePropertySources首先查看SpringApplication对象的成员变量defaultProperties，如果该变量非null且内容非空，则将其加入到Environment的PropertySource列表的最后。然后查看SpringApplication对象的成员变量addCommandLineProperties和main函数的参数args，如果设置了addCommandLineProperties=true，且args个数大于0，那么就构造一个由main函数的参数组成的PropertySource放到Environment的PropertySource列表的最前面(这就能保证，我们通过main函数的参数来做的配置是最优先的，可以覆盖其他配置）。在我们的例子中，由于没有配置defaultProperties且main函数的参数args个数为0，所以这个函数什么也不做。
+
+configureProfiles首先会读取Properties中key为spring.profiles.active的配置项，配置到Environment，然后再将SpringApplication对象的成员变量additionalProfiles加入到Environment的active profiles配置中。在我们的例子中，配置文件里没有spring.profiles.active的配置项，而SpringApplication对象的成员变量additionalProfiles也是一个空的集合，所以这个函数没有配置任何active profile。
+
+到现在，Environment就算是配置完成了。接下来调用SpringApplicationRunListeners类的对象listeners发布ApplicationEnvironmentPreparedEvent事件：
+
+``` java
+
+以下代码摘自：org.springframework.boot.context.event.EventPublishingRunListener
+
+@Override
+public void environmentPrepared(ConfigurableEnvironment environment) {
+	publishEvent(new ApplicationEnvironmentPreparedEvent(this.application, this.args,
+			environment));
+}
+
+```
+
+好，现在来看一看我们加载的ApplicationListener对象都有哪些响应了这个事件，做了什么操作：
+
+- FileEncodingApplicationListener响应该事件，检查file.encoding配置是否与spring.mandatory_file_encoding一致：
+
+``` java
+
+以下代码摘自：org.springframework.boot.context.FileEncodingApplicationListener
+
+@Override
+public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
+	RelaxedPropertyResolver resolver = new RelaxedPropertyResolver(
+			event.getEnvironment(), "spring.");
+	if (resolver.containsProperty("mandatoryFileEncoding")) {
+		String encoding = System.getProperty("file.encoding");
+		String desired = resolver.getProperty("mandatoryFileEncoding");
+		if (encoding != null && !desired.equalsIgnoreCase(encoding)) {
+			logger.error("System property 'file.encoding' is currently '" + encoding
+					+ "'. It should be '" + desired
+					+ "' (as defined in 'spring.mandatoryFileEncoding').");
+			logger.error("Environment variable LANG is '" + System.getenv("LANG")
+					+ "'. You could use a locale setting that matches encoding='"
+					+ desired + "'.");
+			logger.error("Environment variable LC_ALL is '" + System.getenv("LC_ALL")
+					+ "'. You could use a locale setting that matches encoding='"
+					+ desired + "'.");
+			throw new IllegalStateException(
+					"The Java Virtual Machine has not been configured to use the "
+							+ "desired default character encoding (" + desired
+							+ ").");
+		}
+	}
+}
+
+```
+
+在我们的例子中，因为没有spring.mandatory_file_encoding的配置，所以这个响应方法什么都不做。
+
+- AnsiOutputApplicationListener响应该事件，根据spring.output.ansi.enabled和spring.output.ansi.console-available对AnsiOutput类做相应配置:
+
+``` java
+
+以下代码摘自：org.springframework.boot.context.config.AnsiOutputApplicationListener
+
+@Override
+public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
+	RelaxedPropertyResolver resolver = new RelaxedPropertyResolver(
+			event.getEnvironment(), "spring.output.ansi.");
+	if (resolver.containsProperty("enabled")) {
+		String enabled = resolver.getProperty("enabled");
+		AnsiOutput.setEnabled(Enum.valueOf(Enabled.class, enabled.toUpperCase()));
+	}
+
+	if (resolver.containsProperty("console-available")) {
+		AnsiOutput.setConsoleAvailable(
+				resolver.getProperty("console-available", Boolean.class));
+	}
+}
+
+```
+
+我们的例子中，这两项配置都是空的，所以这个响应方法什么都不做。
+
+- ConfigFileApplicationListener加载该事件，从一些约定的位置加载一些配置文件，而这些位置是可配置的。
+
+``` java
+
+
+
+
+```
 
 
 
