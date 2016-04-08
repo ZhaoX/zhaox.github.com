@@ -951,7 +951,133 @@ protected void initialize(ConfigurableEnvironment environment,
 
 在我们的例子中，是对加载的LogbackLoggingSystem做一些初始化工作。关于日志系统更详细的讨论，值得再写一篇文章，就不在这里展开讨论了。
 
+#### 打印banner
 
+``` java
+
+以下代码摘自：org.springframework.boot.SpringApplication
+
+private Banner banner;
+
+private Banner.Mode bannerMode = Banner.Mode.CONSOLE;
+
+public static final String BANNER_LOCATION_PROPERTY = "banner.location";
+
+public static final String BANNER_LOCATION_PROPERTY_VALUE = "banner.txt";
+
+private static final Banner DEFAULT_BANNER = new SpringBootBanner();
+
+
+private ConfigurableApplicationContext createAndRefreshContext(
+		SpringApplicationRunListeners listeners,
+		ApplicationArguments applicationArguments) {
+
+	...
+	if (this.bannerMode != Banner.Mode.OFF) {
+		printBanner(environment);
+	}
+	...
+}
+
+protected void printBanner(Environment environment) {
+	Banner selectedBanner = selectBanner(environment);
+	if (this.bannerMode == Banner.Mode.LOG) {
+		try {
+			logger.info(createStringFromBanner(selectedBanner, environment));
+		}
+		catch (UnsupportedEncodingException ex) {
+			logger.warn("Failed to create String for banner", ex);
+		}
+	}
+	else {
+		selectedBanner.printBanner(environment, this.mainApplicationClass,
+				System.out);
+	}
+}
+
+private Banner selectBanner(Environment environment) {
+	String location = environment.getProperty(BANNER_LOCATION_PROPERTY,
+			BANNER_LOCATION_PROPERTY_VALUE);
+	ResourceLoader resourceLoader = this.resourceLoader != null ? this.resourceLoader
+			: new DefaultResourceLoader(getClassLoader());
+	Resource resource = resourceLoader.getResource(location);
+	if (resource.exists()) {
+		return new ResourceBanner(resource);
+	}
+	if (this.banner != null) {
+		return this.banner;
+	}
+	return DEFAULT_BANNER;
+}
+
+private String createStringFromBanner(Banner banner, Environment environment)
+		throws UnsupportedEncodingException {
+	ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	banner.printBanner(environment, this.mainApplicationClass, new PrintStream(baos));
+	String charset = environment.getProperty("banner.charset", "UTF-8");
+	return baos.toString(charset);
+}
+
+```
+
+printBanner方法中，首先会调用selectBanner方法得到一个banner对象，然后判断bannerMode的类型，如果是Banner.Mode.LOG，那么将banner对象转换为字符串，打印一条info日志，否则的话，调用banner对象的printbanner方法，将banner打印到标准输出System.out。
+
+在我们的例子中，bannerMode是Banner.Mode.Console，而且也不曾提供过banner.txt这样的资源文件。所以selectBanner方法中得到到便是默认的banner对象，即SpringBootBanner类的对象：
+
+``` java
+
+以下代码摘自：org.springframework.boot.SpringBootBanner
+
+private static final String[] BANNER = { "",
+		"  .   ____          _            __ _ _",
+		" /\\\\ / ___'_ __ _ _(_)_ __  __ _ \\ \\ \\ \\",
+		"( ( )\\___ | '_ | '_| | '_ \\/ _` | \\ \\ \\ \\",
+		" \\\\/  ___)| |_)| | | | | || (_| |  ) ) ) )",
+		"  '  |____| .__|_| |_|_| |_\\__, | / / / /",
+		" =========|_|==============|___/=/_/_/_/" };
+
+private static final String SPRING_BOOT = " :: Spring Boot :: ";
+
+private static final int STRAP_LINE_SIZE = 42;
+
+@Override
+public void printBanner(Environment environment, Class<?> sourceClass,
+		PrintStream printStream) {
+	for (String line : BANNER) {
+		printStream.println(line);
+	}
+	String version = SpringBootVersion.getVersion();
+	version = (version == null ? "" : " (v" + version + ")");
+	String padding = "";
+	while (padding.length() < STRAP_LINE_SIZE
+			- (version.length() + SPRING_BOOT.length())) {
+		padding += " ";
+	}
+
+	printStream.println(AnsiOutput.toString(AnsiColor.GREEN, SPRING_BOOT,
+			AnsiColor.DEFAULT, padding, AnsiStyle.FAINT, version));
+	printStream.println();
+}
+
+```
+
+先打印个Spring的图形，然后打印个Spring Boot的文本，再然后打印一下Spring Boot的版本。会在控制台看到如下输出：
+
+``` java
+
+以下内容是程序启动后在console的输出：
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::        (v1.3.3.RELEASE)
+
+```
+
+我的天。分析启动流程这么久，终于在屏幕有一行输出了，不容易。
 
 
 
