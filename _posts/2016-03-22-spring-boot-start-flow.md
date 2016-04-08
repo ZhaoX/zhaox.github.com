@@ -801,14 +801,157 @@ public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
 
 我们的例子中，这两项配置都是空的，所以这个响应方法什么都不做。
 
-- ConfigFileApplicationListener加载该事件，从一些约定的位置加载一些配置文件，而这些位置是可配置的。
+- ConfigFileApplicationListener加载该事件，从一些约定的位置加载一些配置文件，而且这些位置是可配置的。
 
 ``` java
 
+以下代码摘自：org.springframework.boot.context.config.ConfigFileApplicationListener
+
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationEnvironmentPreparedEvent) {
+		onApplicationEnvironmentPreparedEvent(
+				(ApplicationEnvironmentPreparedEvent) event);
+	}
+	if (event instanceof ApplicationPreparedEvent) {
+		onApplicationPreparedEvent(event);
+	}
+}
+
+private void onApplicationEnvironmentPreparedEvent(
+		ApplicationEnvironmentPreparedEvent event) {
+	List<EnvironmentPostProcessor> postProcessors = loadPostProcessors();
+	postProcessors.add(this);
+	AnnotationAwareOrderComparator.sort(postProcessors);
+	for (EnvironmentPostProcessor postProcessor : postProcessors) {
+		postProcessor.postProcessEnvironment(event.getEnvironment(),
+				event.getSpringApplication());
+	}
+}
+
+List<EnvironmentPostProcessor> loadPostProcessors() {
+	return SpringFactoriesLoader.loadFactories(EnvironmentPostProcessor.class,
+			getClass().getClassLoader());
+}
 
 
+以下内容摘自spring-boot-1.3.3.RELEASE.jar中的资源文件META-INF/spring.factories
+
+# Environment Post Processors
+org.springframework.boot.env.EnvironmentPostProcessor=\
+org.springframework.boot.cloud.CloudFoundryVcapEnvironmentPostProcessor,\
+org.springframework.boot.env.SpringApplicationJsonEnvironmentPostProcessor
 
 ```
+
+可以看到，ConfigFileApplicationListener从META-INF/spring.factories文件中读取EnvironmentPostProcessor配置，加载相应的EnvironmentPostProcessor类的对象，并调用其postProcessEnvironment方法。在我们的例子中，会加载CloudFoundryVcapEnvironmentPostProcessor和SpringApplicationJsonEnvironmentPostProcessor并执行，由于我们的例子中没有CloudFoundry和Json的配置，所以这个响应，不会加载任何的配置文件到Environment中来。
+
+- DelegatingApplicationListener响应该事件，将配置文件中key为context.listener.classes的配置项，加载在成员变量multicaster中：
+
+``` java
+
+以下内容摘自：org.springframework.boot.context.config.DelegatingApplicationListener
+
+private static final String PROPERTY_NAME = "context.listener.classes";
+
+private SimpleApplicationEventMulticaster multicaster;
+
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationEnvironmentPreparedEvent) {
+		List<ApplicationListener<ApplicationEvent>> delegates = getListeners(
+				((ApplicationEnvironmentPreparedEvent) event).getEnvironment());
+		if (delegates.isEmpty()) {
+			return;
+		}
+		this.multicaster = new SimpleApplicationEventMulticaster();
+		for (ApplicationListener<ApplicationEvent> listener : delegates) {
+			this.multicaster.addApplicationListener(listener);
+		}
+	}
+	if (this.multicaster != null) {
+		this.multicaster.multicastEvent(event);
+	}
+}
+
+@SuppressWarnings("unchecked")
+private List<ApplicationListener<ApplicationEvent>> getListeners(
+		ConfigurableEnvironment env) {
+	String classNames = env.getProperty(PROPERTY_NAME);
+	List<ApplicationListener<ApplicationEvent>> listeners = new ArrayList<ApplicationListener<ApplicationEvent>>();
+	if (StringUtils.hasLength(classNames)) {
+		for (String className : StringUtils.commaDelimitedListToSet(classNames)) {
+			try {
+				Class<?> clazz = ClassUtils.forName(className,
+						ClassUtils.getDefaultClassLoader());
+				Assert.isAssignable(ApplicationListener.class, clazz, "class ["
+						+ className + "] must implement ApplicationListener");
+				listeners.add((ApplicationListener<ApplicationEvent>) BeanUtils
+						.instantiateClass(clazz));
+			}
+			catch (Exception ex) {
+				throw new ApplicationContextException(
+						"Failed to load context listener class [" + className + "]",
+						ex);
+			}
+		}
+	}
+	AnnotationAwareOrderComparator.sort(listeners);
+	return listeners;
+}
+
+```
+
+我们的例子中，因为没有key为context.listener.classes的Property，所以不会加载任何listener到该监听器中。
+
+- LoggingApplicationListener响应该事件，并对在ApplicationStarted时加载的LoggingSystem做一些初始化工作：
+
+``` java
+
+以下代码摘自：org.springframework.boot.logging.LoggingApplicationListener
+
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationStartedEvent) {
+		onApplicationStartedEvent((ApplicationStartedEvent) event);
+	}
+	else if (event instanceof ApplicationEnvironmentPreparedEvent) {
+		onApplicationEnvironmentPreparedEvent(
+				(ApplicationEnvironmentPreparedEvent) event);
+	}
+	else if (event instanceof ApplicationPreparedEvent) {
+		onApplicationPreparedEvent((ApplicationPreparedEvent) event);
+	}
+	else if (event instanceof ContextClosedEvent && ((ContextClosedEvent) event)
+			.getApplicationContext().getParent() == null) {
+		onContextClosedEvent();
+	}
+}
+
+private void onApplicationEnvironmentPreparedEvent(
+		ApplicationEnvironmentPreparedEvent event) {
+	if (this.loggingSystem == null) {
+		this.loggingSystem = LoggingSystem
+				.get(event.getSpringApplication().getClassLoader());
+	}
+	initialize(event.getEnvironment(), event.getSpringApplication().getClassLoader());
+}
+
+protected void initialize(ConfigurableEnvironment environment,
+		ClassLoader classLoader) {
+	LogFile logFile = LogFile.get(environment);
+	setSystemProperties(environment, logFile);
+	initializeEarlyLoggingLevel(environment);
+	initializeSystem(environment, this.loggingSystem, logFile);
+	initializeFinalLoggingLevels(environment, this.loggingSystem);
+	registerShutdownHookIfNecessary(environment, this.loggingSystem);
+}
+
+```
+
+在我们的例子中，是对加载的LogbackLoggingSystem做一些初始化工作。关于日志系统更详细的讨论，值得再写一篇文章，就不在这里展开讨论了。
+
+
 
 
 
