@@ -1079,6 +1079,64 @@ public void printBanner(Environment environment, Class<?> sourceClass,
 
 我的天。分析启动流程这么久，终于在屏幕有一行输出了，不容易。
 
+#### 创建ApplicationContext
+
+``` java
+
+private Class<? extends ConfigurableApplicationContext> applicationContextClass;
+
+public static final String DEFAULT_CONTEXT_CLASS = "org.springframework.context."
+		+ "annotation.AnnotationConfigApplicationContext";
+
+public static final String DEFAULT_WEB_CONTEXT_CLASS = "org.springframework."
+		+ "boot.context.embedded.AnnotationConfigEmbeddedWebApplicationContext";
+
+private ConfigurableApplicationContext createAndRefreshContext(
+		SpringApplicationRunListeners listeners,
+		ApplicationArguments applicationArguments) {
+	ConfigurableApplicationContext context;
+
+	...
+
+	context = createApplicationContext();
+	context.setEnvironment(environment);
+	postProcessApplicationContext(context);
+	applyInitializers(context);
+	listeners.contextPrepared(context);
+	if (this.logStartupInfo) {
+		logStartupInfo(context.getParent() == null);
+		logStartupProfileInfo(context);
+	}
+
+	...
+
+	return context;
+}
+
+
+protected ConfigurableApplicationContext createApplicationContext() {
+	Class<?> contextClass = this.applicationContextClass;
+	if (contextClass == null) {
+		try {
+			contextClass = Class.forName(this.webEnvironment
+					? DEFAULT_WEB_CONTEXT_CLASS : DEFAULT_CONTEXT_CLASS);
+		}
+		catch (ClassNotFoundException ex) {
+			throw new IllegalStateException(
+					"Unable create a default ApplicationContext, "
+							+ "please specify an ApplicationContextClass",
+					ex);
+		}
+	}
+	return (ConfigurableApplicationContext) BeanUtils.instantiate(contextClass);
+}
+
+```
+
+createAndRefreshContext中调用createApplicationContext获取创建ApplicationContext，可以看到，当检测到本次程序是一个web应用程序（成员变量webEnvironment为true）的时候，就加载类DEFAULT_WEB_CONTEXT_CLASS，否则的话加载DEFAULT_CONTEXT_CLASS。我们的例子是一个web应用程序，所以会加载DEFAULT_WEB_CONTEXT_CLASS，也就是org.springframework.boot.context.embedded.AnnotationConfigEmbeddedWebApplicationContext。我们先来看一看这个AnnotationConfigEmbeddedWebApplicationContext具体有什么功能。下图画出了它的继承体系。
+
+![SpringBootApplicationContext](http://zhaox.github.io/assets/images/SpringBootApplicationContext.png)
+
 
 
 
