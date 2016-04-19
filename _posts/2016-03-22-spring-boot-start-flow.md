@@ -1137,6 +1137,112 @@ createAndRefreshContext中调用createApplicationContext获取创建ApplicationC
 
 ![SpringBootApplicationContext](http://zhaox.github.io/assets/images/SpringBootApplicationContext.png)
 
+可以看到我们加载的这个AnnotationConfigEmbeddedWebApplicationContext类，从名字就可以看出来，首先是一个WebApplicationContext实现了WebApplicationContext接口，然后是一个EmbeddedWebApplicationContext，这意味着它会自动创建并初始化一个EmbeddedServletContainer，同时还支持AnnotationConfig，会将使用注解标注的bean注册到ApplicationContext中。更详细的过程，后面在例子中再一一剖析。
+
+可以看到在加载类对象AnnotationConfigEmbeddedWebApplicationContext之后，createApplicationContext方法中紧接着调用BeanUtils的instantiate方法来创建ApplicationContext对象，其代码如下：
+
+``` java
+
+以下代码摘自：org.springframework.beans.BeanUtils
+
+public static <T> T instantiate(Class<T> clazz) throws BeanInstantiationException {
+	Assert.notNull(clazz, "Class must not be null");
+	if (clazz.isInterface()) {
+		throw new BeanInstantiationException(clazz, "Specified class is an interface");
+	}
+	try {
+		return clazz.newInstance();
+	}
+	catch (InstantiationException ex) {
+		throw new BeanInstantiationException(clazz, "Is it an abstract class?", ex);
+	}
+	catch (IllegalAccessException ex) {
+		throw new BeanInstantiationException(clazz, "Is the constructor accessible?", ex);
+	}
+}
+
+```
+
+通过调用Class对象的newInstance()方法来实例化对象，这等同于直接调用类的空的构造方法，所以我们来看AnnotationConfigEmbeddedWebApplicationContext类的构造方法：
+
+``` java
+
+以下代码摘自：org.springframework.boot.context.embedded.AnnotationConfigEmbeddedWebApplicationContext
+
+public AnnotationConfigEmbeddedWebApplicationContext() {
+	this.reader = new AnnotatedBeanDefinitionReader(this);
+	this.scanner = new ClassPathBeanDefinitionScanner(this);
+}
+
+@Override
+public void setEnvironment(ConfigurableEnvironment environment) {
+	super.setEnvironment(environment);
+	this.reader.setEnvironment(environment);
+	this.scanner.setEnvironment(environment);
+}
+
+```
+
+构造方法中初始化了两个成员变量，类型分别为AnnotatedBeanDefinitionReader和ClassPathBeanDefinitionScanner用以加载使用注解的bean定义。
+
+这样ApplicationContext对象就创建出来了，在createAndRefreshContext方法中创建了ApplicationContext对象之后会紧接着调用其setEnvironment将我们之前准备好的Environment对象赋值进去。之后分别调用postProcessApplicationContext和applyInitializers做一些处理和初始化的操作。
+
+先来看看postProcessApplicationContext：
+
+``` java
+
+protected void postProcessApplicationContext(ConfigurableApplicationContext context) {
+	if (this.webEnvironment) {
+		if (context instanceof ConfigurableWebApplicationContext) {
+			ConfigurableWebApplicationContext configurableContext = (ConfigurableWebApplicationContext) context;
+			if (this.beanNameGenerator != null) {
+				configurableContext.getBeanFactory().registerSingleton(
+						AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR,
+						this.beanNameGenerator);
+			}
+		}
+	}
+	if (this.resourceLoader != null) {
+		if (context instanceof GenericApplicationContext) {
+			((GenericApplicationContext) context)
+					.setResourceLoader(this.resourceLoader);
+		}
+		if (context instanceof DefaultResourceLoader) {
+			((DefaultResourceLoader) context)
+					.setClassLoader(this.resourceLoader.getClassLoader());
+		}
+	}
+}
+
+```
+
+如果成员变量beanNameGenerator不为Null，那么为ApplicationContext对象注册beanNameGenerator bean。如果成员变量resourceLoader不为null，则为ApplicationContext对象设置ResourceLoader。我们的例子中，这两个成员变量都为Null，所以什么都不做。
+
+之后是applyInitializers方法：
+
+``` java
+
+protected void applyInitializers(ConfigurableApplicationContext context) {
+	for (ApplicationContextInitializer initializer : getInitializers()) {
+		Class<?> requiredType = GenericTypeResolver.resolveTypeArgument(
+				initializer.getClass(), ApplicationContextInitializer.class);
+		Assert.isInstanceOf(requiredType, context, "Unable to call initializer.");
+		initializer.initialize(context);
+	}
+}
+
+public Set<ApplicationContextInitializer<?>> getInitializers() {
+	return asUnmodifiableOrderedSet(this.initializers);
+}
+
+private static <E> Set<E> asUnmodifiableOrderedSet(Collection<E> elements) {
+	List<E> list = new ArrayList<E>();
+	list.addAll(elements);
+	Collections.sort(list, AnnotationAwareOrderComparator.INSTANCE);
+	return new LinkedHashSet<E>(list);
+}
+
+```
 
 
 
