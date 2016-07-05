@@ -147,6 +147,8 @@ private V putForNullKey(V value) {
     return null;
 }
 
+```
+
 #### 4. 实现原理
 
 本节讨论HashMap和HashTable在数据结构和算法层面，有什么不同。
@@ -357,6 +359,8 @@ private class Enumerator<T> implements Enumeration<T>, Iterator<T> {
     //...
 
 }
+
+```
 
 
 #### HashTable已经被淘汰了，不要在代码中再使用它。
