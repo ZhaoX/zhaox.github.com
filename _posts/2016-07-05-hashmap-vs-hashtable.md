@@ -280,7 +280,7 @@ static int indexFor(int h, int length) {
 
 ```
 
-正如我们所言，HashMap由于使用了2的幂次方，所以在取模运算时不需要做除法，只需要位的与运算就可以了。但是由于引入的hash冲突加剧问题，HashMap在调用了对象的hashCode方法之后，又做了一些位运算在打散数据。关于这些位计算为什么可以打散数据的问题，本文不再展开了。感兴趣的可以看[这里]（http://stackoverflow.com/questions/9413966/why-initialcapacity-of-hashtable-is-11-while-the-default-initial-capacity-in-has）。
+正如我们所言，HashMap由于使用了2的幂次方，所以在取模运算时不需要做除法，只需要位的与运算就可以了。但是由于引入的hash冲突加剧问题，HashMap在调用了对象的hashCode方法之后，又做了一些位运算在打散数据。关于这些位计算为什么可以打散数据的问题，本文不再展开了。感兴趣的可以看[这里](http://stackoverflow.com/questions/9413966/why-initialcapacity-of-hashtable-is-11-while-the-default-initial-capacity-in-has)。
 
 如果你有细心读代码，还可以发现一点，就是HashMap和HashTable在计算hash时都用到了一个叫hashSeed的变量。这是因为映射到同一个hash桶内的Entry对象，是以链表的形式存在的，而链表的查询效率比较低，所以HashMap/HashTable的效率对哈希冲突非常敏感，所以可以额外开启一个可选hash（hashSeed），从而减少哈希冲突。因为这是两个类相同的一点，所以本文不再展开了，感兴趣的看[这里](http://stackoverflow.com/questions/29918624/what-is-the-use-of-holder-class-in-hashmap)。事实上，这个优化在JDK 1.8中已经去掉了，因为JDK 1.8中，映射到同一个哈希桶（数组位置）的Entry对象，使用了红黑树来存储，从而大大加速了其查找效率。
 
@@ -380,25 +380,6 @@ private class Enumerator<T> implements Enumeration<T>, Iterator<T> {
 
 #### Reference
 
--[https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/HashMap.java](https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/HashMap.java)
--[https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/Hashtable.java](https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/Hashtable.java)
-
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- [https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/HashMap.java](https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/HashMap.java)
+- [https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/Hashtable.java](https://github.com/ZhaoX/jdk-1.7-annotated/blob/master/src/java/util/Hashtable.java)
 
