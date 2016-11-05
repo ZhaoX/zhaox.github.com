@@ -44,7 +44,7 @@ tags: [Web, Password, Hash]
 
 比如10位，允许数字、字母大小写的密码，一共有(10+26+26)^10~=84亿亿种可能，记录非常之多难以用查询表全部保存起来。这时候黑客会用一种叫做彩虹表的技术来破解，彩虹表用了典型的计算机世界里解决问题的思路，时间空间妥协。在这个例子里面，空间不够，那就多花一些时间。在彩虹表中，可以将全部的sha256值转化为长度相同的若干条hash链，只保存hash链的头和尾，在破解的时候先查询得到sha256存在于哪条hash链中，然后计算这一条hash链上的所有sha256，通过实时比对来破解用户密码。
 
-![rainbow table](https://en.wikipedia.org/wiki/File:Rainbow_table1.svg)
+![rainbow table](http://zhaox.github.io/assets/images/RainbowTable.svg)
 
 上图图展示了一个hash链长度为3的彩虹表，因为在hash链中需要将hash值使用R函数映射回密码取值空间，为了降低R函数的冲突概率，长度为K的hash链中，彩虹表会使用k个R函数，因为每次迭代映射回密码空间使用的R函数不一样，这种破解方法被称作彩虹表攻击。
 
