@@ -41,17 +41,17 @@ Domain、Path、Name三者唯一确定一个cookie。其它属性仅用作读写
 
 Domain是向上通配的：
 
-- 写入（Set-Cookie）
-```
-    访问www.example.com：
-	
+- 写入（Set-Cookie）访问www.example.com
+
+```javascript
     Set-Cookie: sid1=a; domain=example.com; path=/;            接受
     Set-Cookie: sid2=b; domain=www.example.com; path=/;        接受
     Set-Cookie: sid3=c; domain=pay.example.com; path=/;        拒绝
 ```
 
 - 读取（Cookie）
-```
+
+```javascript
     访问pay.example.com
 		Cookie: sid1=a
 		
@@ -65,20 +65,24 @@ Domain是向上通配的：
 Path是向下通配的：
 
 - 写入（Set-Cookie）
-```
+
+```javascript
+
     Set‐Cookie: sid1=a; domain=example.com; path=/;
     Set‐Cookie: sid2=b; domain=example.com; path=/test/;
 ```
 
 - 读取（Cookie）
-```
+
+```javascript
+
     访问http://example.com/
 	    Cookie: sid1=a;
 	
 	访问http://example.com/test/
 	    Cookie: sid1=a; sid2=b
-
 ```
+
 	
 ### Cookie的有效期过长导致通行证泄露
 
@@ -143,7 +147,8 @@ XSS仍有可能利用服务端漏洞获取cookie：
 
 HSTS通过设置strict‐transport‐security头，来告知浏览器，对当前域名以及所有子域名，都只使用HTTPS访问。
 
-```
+``` javascript
+
 让浏览器对当前域名及子域名，强制进行HTTPS访问：
 
 strict‐transport‐security: max‐age=15552000;includeSubDomains;
