@@ -94,6 +94,8 @@ SVG并非只能绘制简单的Logo类的图片，它可以绘制出精致的图�
 
 ![SVG](http://zhaox.github.io/assets/images/SVG.png)
 
+很多人想要这个图片的SVG版本。贴个链接在这里吧：https://upload.wikimedia.org/wikipedia/commons/1/14/Mahuri.svg
+
 ####WebP
 
 WebP是谷歌开发的一种新图片格式，WebP是同时支持有损和无损压缩的、使用直接色的、点阵图。
