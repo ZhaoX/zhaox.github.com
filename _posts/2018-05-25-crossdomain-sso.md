@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "跨域名登录传递"
+title: "跨域名登录态传递"
 description: ""
 category: Passport 
 tags: [Web, Http, Cookie, SSO]
