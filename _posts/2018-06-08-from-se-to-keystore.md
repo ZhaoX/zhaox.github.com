@@ -98,10 +98,11 @@ Android从4.0开始引入了KeyStore，开发者可以使用KeyStore API生成�
 Android 版本 | 新增的KeyStore能力
 ----- | -----
 4.0 | 创世版本，密钥使用用户的passcde加密后存储，支持RSA、ECDSA
-4.1 | 增加了使用安全硬件的基础设施，在可能的情况下密钥会被存储到安全硬件中
+4.1 | 增加了使用TEE的基础设施，在可能的情况下密钥会被存储到TEE中
 6.0 | 增加支持AES、HMAC；增加了密钥绑定用户认证的能力，即可以指定某些密钥，在每一次使用时，必须由用户进行认证（指纹、passcode等）
-7.0 | 强制要求预装7.0系统的设备必须拥有安全硬件并且支持基于安全硬件的KeyStore
-8.0 | 增加了设备证明（Key Attestation）能力，开发者可通过验证Key Attestation的证书链，来确认密钥的确保存在了安全硬件中
+7.0 | 强制要求预装7.0系统的设备必须拥有TEE并且支持基于TEE的KeyStore
+8.0 | 增加了设备证明（Key Attestation）能力，开发者可通过验证Key Attestation的证书链，来确认密钥的确保存在了TEE中
+9.0 | 增加了StrongBox API，如果密钥被放到了StrongBox，那么密钥一定被放到了安全硬件。Google并没有说明安全硬件一定是SE，而是提了一些安全硬件的要求。
 
 ### 总结
 
