@@ -27,13 +27,15 @@ tags: [Computer Science, BUG, Testing]
 
 #### 从开发工程师的角度
 
-努力学习、少猜测勤动手多验证、做的越少错的越少、静态代码检查、复盘、
+努力学习、少猜测勤动手多验证、做的越少错的越少、静态代码检查、复盘
 
 #### 从团队管理者的角度
 
-Code Review、建立团队通识
+Code Review、Team Knowledge Base、Hire Senior Engineer、Build Stable Team
 
 #### 从测试的角度
+
+Exploratory Testing、Fuzzing Testing、Property-based Testing
 
 #### 从系统设计的角度
 
