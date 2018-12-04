@@ -46,4 +46,6 @@ Exploratory Testing、Fuzzing Testing、Property-based Testing
 结尾了再看老师的八卦，其实说欧洲人美国人有点偏见了，应该是数学家和工程师在面对问题时的两种思维方式。
 
 相信数学家的好方法，最终会被优秀的工程师用起来。
+
 ​
+(未完待续) 最近挖坑很多，希望能都填上。
