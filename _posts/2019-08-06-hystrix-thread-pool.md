@@ -9,6 +9,16 @@ tags: [Java, Hystrix]
 
 本文介绍Hystrix线程池的工作原理和参数配置，指出存在的问题并提供规避方案，阅读本文需要对Hystrix有一定的了解。
 
+文本讨论的内容，基于hystrix 1.5.18：
+
+``` xml
+    <dependency>
+      <groupId>com.netflix.hystrix</groupId>
+      <artifactId>hystrix-core</artifactId>
+      <version>1.5.18</version>
+    </dependency>
+```
+
 ### 线程池和Hystrix Command之间的关系
 
 当hystrix command的隔离策略配置为线程，也就是execution.isolation.strategy设置为THREAD时，command中的代码会放到线程池里执行，跟发起command调用的线程隔离开。摘要官方wiki如下：
@@ -272,7 +282,18 @@ ThreadPoolKey: TestThreadPoolCommand, PoolSize: 2, QueueSize: 10
 
 继续分析Hystrix线程池的原理之前，先来复习一下JDK中的线程池。
 
+只说跟本文讨论的内容相关的参数：
+
+- corePoolSize核心线程数，maximumPoolSize最大线程数。这个两个参数跟hystrix线程池的coreSize和maximumSize含义是一致的。
+- workQueue任务等候队列。跟hystrix不同，jdk线程池的等候队列不是指定大小，而是需要使用方提供一个BlockingQueue。
+- handler当线程池无法接受任务时的处理器。hystrix是直接拒绝，jdk线程池可以定制。
+
+可以看到，jdk的线程池使用起来更加灵活。配置参数的含义也十分清晰，没有hystrx线程池里面allowMaximumSizeToDivergeFromCoreSize、queueSizeRejectionThreshold这种奇奇怪怪让人疑惑的参数。
+
+关于jdk线程池的参数配置，参加如下jdk源码：
+
 ``` java
+
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial
      * parameters.
@@ -323,6 +344,16 @@ ThreadPoolKey: TestThreadPoolCommand, PoolSize: 2, QueueSize: 10
     }
 ```
 
+那么在跟hystrix线程池对应的参数配置下，jdk线程池的表现会怎样呢？
+
+``` json
+corePoolSize = 2; maximumPoolSize = 5; workQueue = new ArrayBlockingQueue(10); handler = new ThreadPoolExecutor.DiscardPolicy()
+```
+
+这里不再测试了，直接给出答案。线程池中常驻2个线程。新任务提交到线程池，2个线程中有空闲则直接执行，否则入队等候。当2个线程都在工作且等待队列中的任务数=10时，开始为新任务创建线程，直到线程数量为5，此时开始拒绝新任务。
+
+相关逻辑涉及的源码贴在下面。值得一提的是，jdk线程池并不根据等候任务的数量来判断等候队列是否已满，而是直接调用workQueue的offer方法，如果workQueue接受了那就入队等候，否则执行拒绝策略。
+
 ``` java
     public void execute(Runnable command) {
         if (command == null)
@@ -365,9 +396,11 @@ ThreadPoolKey: TestThreadPoolCommand, PoolSize: 2, QueueSize: 10
     }
 ```
 
-
+可以看到hystrix线程池的配置参数跟jdk线程池是非常像的，从名字到含义，都基本一致。
 
 ### 为什么
+
+事实上hystrix的线程池，就是在jdk线程池的基础上实现的。相关代码如下：
 
 ``` java
 
@@ -395,15 +428,90 @@ ThreadPoolKey: TestThreadPoolCommand, PoolSize: 2, QueueSize: 10
         }
     }
 
+    public BlockingQueue<Runnable> getBlockingQueue(int maxQueueSize) {
+        /*
+         * We are using SynchronousQueue if maxQueueSize <= 0 (meaning a queue is not wanted).
+         * <p>
+         * SynchronousQueue will do a handoff from calling thread to worker thread and not allow queuing which is what we want.
+         * <p>
+         * Queuing results in added latency and would only occur when the thread-pool is full at which point there are latency issues
+         * and rejecting is the preferred solution.
+         */
+        if (maxQueueSize <= 0) {
+            return new SynchronousQueue<Runnable>();
+        } else {
+            return new LinkedBlockingQueue<Runnable>(maxQueueSize);
+        }
+    }
+
 ```
 
+既然hystrix线程池基于jdk线程池实现，为什么在如下两个基本一致的配置上，行为却不一样呢？
 
+``` json
+//hystrix
+coreSize = 2; maximumSize = 5; maxQueueSize = 10
+
+//jdk
+corePoolSize = 2; maximumPoolSize = 5; workQueue = new ArrayBlockingQueue(10); handler = new ThreadPoolExecutor.DiscardPolicy()
+```
+
+jdk在队列满了之后会创建线程执行新任务直到线程数量达到maximumPoolSize，而hystrix在队列满了之后直接拒绝新任务，maximumSize这项配置成了摆设。
+
+原因就在于hystrix判断队列是否满是否要拒绝新任务，没有通过jdk线程池在判断，而是自己判断的。参见如下hystrix源码：
+
+``` java
+    public boolean isQueueSpaceAvailable() {
+        if (queueSize <= 0) {
+            // we don't have a queue so we won't look for space but instead
+            // let the thread-pool reject or not
+            return true;
+        } else {
+            return threadPool.getQueue().size() < properties.queueSizeRejectionThreshold().get();
+        }
+    }
+
+    public Subscription schedule(Action0 action, long delayTime, TimeUnit unit) {
+        if (threadPool != null) {
+            if (!threadPool.isQueueSpaceAvailable()) {
+                throw new RejectedExecutionException("Rejected command because thread-pool queueSize is at rejection threshold.");
+            }
+        }
+        return worker.schedule(new HystrixContexSchedulerAction(concurrencyStrategy, action), delayTime, unit);
+    }
+```
+
+可以看到hystrix在队列大小达到maxQueueSize时，根本不会往底层的ThreadPoolExecutor提交任务。ThreadPoolExecutor也就没有机会判断workQueue能不能offer，更不能创建新的线程了。
 
 ### 怎么办
 
-配置的时候规避问题
+对用惯了jdk的ThreadPoolExecutor的人来说，再用hystrix的确容易出错，笔者就曾在多个重要线上服务的代码里看到过错误的配置，称一声危险的hystrix线程池不为过。
 
-自定义
+那怎么办呢？
+
+#### 配置的时候规避问题
+
+同时配置maximumSize > coreSize，maxQueueSize > 0，像下面这样，是不行了。
+
+``` json
+coreSize = 2; maximumSize = 5; maxQueueSize = 10
+```
+
+妥协一下，如果对延迟比较看重，配置maximumSize > coreSize，maxQueueSize = -1。这样在任务多的时候，不会有等候队列，直接创建新线程执行任务。
+
+``` java
+coreSize = 2; maximumSize = 5; maxQueueSize = -1
+```
+
+如果对资源比较看重, 不希望创建过多线程，配置maximumSize = coreSize，maxQueueSize > 0。这样在任务多的时候，会进等候队列，直到有线程空闲或者超时。
+
+``` java
+coreSize = 2; maximumSize = 5; maxQueueSize = -1
+```
+
+#### 在hystrix上修复这个问题
+
+技术上是可行的，有很多方案可以做到。但Netflix已经宣布不再维护hystrix了，这条路也就不通了，除非维护自己的hystrix分支版本。
 
 ### Reference
 https://github.com/Netflix/Hystrix/wiki/Configuration
