@@ -506,7 +506,7 @@ coreSize = 2; maximumSize = 5; maxQueueSize = -1
 如果对资源比较看重, 不希望创建过多线程，配置maximumSize = coreSize，maxQueueSize > 0。这样在任务多的时候，会进等候队列，直到有线程空闲或者超时。
 
 ``` java
-coreSize = 2; maximumSize = 5; maxQueueSize = -1
+coreSize = 2; maximumSize = 2; maxQueueSize = 10
 ```
 
 #### 在hystrix上修复这个问题
