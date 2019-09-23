@@ -65,7 +65,7 @@ tags: [Web, Authentication]
 
 用户认证都需要，只要在拆分的时候把相关代码都拷贝走，然后各个服务都要依赖用户信息和分布式session。
 
-这样维护起来困难太大，只好将用户认证相关的功能拆分出来，形成一个独立的用户认证服务。这个服务几乎每一个大点的互联网公司都有，名字不太一样，有的叫Passport，有的叫Account，有的叫User，但总归总能是差不多的。
+这样维护起来困难太大，只好将用户认证相关的功能拆分出来，形成一个独立的用户认证服务。这个服务几乎每一个大点的互联网公司都有，名字不太一样，有的叫Passport，有的叫Account，有的叫User，但总归功能是差不多的。
 
 ![UserAuthService](http://zhaox.github.io/assets/images/UserAuthService.png)
 
