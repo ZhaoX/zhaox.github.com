@@ -13,3 +13,4 @@ tags: [OAuth, OpenID, SAML]
 [https://openid.net/connect/](https://openid.net/connect/)
 [https://hackernoon.com/demystifying-oauth-2-0-and-openid-connect-and-saml-12aa4cf9fdba](https://hackernoon.com/demystifying-oauth-2-0-and-openid-connect-and-saml-12aa4cf9fdba)
 [https://spin.atomicobject.com/2016/05/30/openid-oauth-saml/](https://spin.atomicobject.com/2016/05/30/openid-oauth-saml/)
+[https://openid.net/specs/openid-connect-core-1_0.html](https://openid.net/specs/openid-connect-core-1_0.html)
