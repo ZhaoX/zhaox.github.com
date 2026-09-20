@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>计数按钮</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: grid;
+        min-height: 100svh;
+        min-height: 100dvh;
+        margin: 0;
+        place-items: end center;
+        padding: 1.25rem;
+        padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+        background: #f4f7fb;
+        font-family: system-ui, sans-serif;
+      }
+
+      #counter-stage {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+
+      #counter-button {
+        min-width: 18rem;
+        min-height: 9rem;
+        padding: 1.75rem 3.5rem;
+        border: 0;
+        border-radius: 1.75rem;
+        background: #1677ff;
+        color: #fff;
+        font: inherit;
+        font-size: clamp(3.25rem, 14vw, 5.5rem);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+        transform: translateZ(0);
+        box-shadow: 0 0.85rem 2.5rem rgb(22 119 255 / 25%);
+      }
+
+      #counter-button:active {
+        background: #0f66e8;
+      }
+
+      #counter-button:focus {
+        outline: none;
+      }
+
+      #counter-button:focus-visible {
+        outline: 0.25rem solid #111;
+        outline-offset: 0.25rem;
+      }
+
+      .float-plus {
+        position: absolute;
+        top: 0.35rem;
+        left: 50%;
+        z-index: 2;
+        color: #ff3b30;
+        font-size: clamp(1.6rem, 7vw, 2.4rem);
+        font-weight: 800;
+        line-height: 1;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        text-shadow: 0 0.12rem 0.4rem rgb(255 59 48 / 40%);
+        animation: float-plus 900ms ease-out forwards;
+        will-change: transform, opacity;
+      }
+
+      @keyframes float-plus {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, 0) scale(0.8) rotate(0deg);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translate(calc(-50% + var(--x)), -8rem) scale(1.2)
+            rotate(var(--r));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="counter-stage">
+      <button id="counter-button" type="button">0</button>
+    </div>
+
+    <script>
+      const button = document.querySelector("#counter-button");
+      const stage = document.querySelector("#counter-stage");
+      let count = 0;
+
+      button.addEventListener("click", () => {
+        count += 1;
+        button.textContent = String(count);
+        spawnPlusOne();
+      });
+
+      function spawnPlusOne() {
+        const plus = document.createElement("span");
+        plus.className = "float-plus";
+        plus.textContent = "+1";
+        plus.setAttribute("aria-hidden", "true");
+        plus.style.setProperty(
+          "--x",
+          `${Math.round((Math.random() - 0.5) * 140)}px`
+        );
+        plus.style.setProperty(
+          "--r",
+          `${Math.round((Math.random() - 0.5) * 28)}deg`
+        );
+        stage.appendChild(plus);
+        plus.addEventListener("animationend", () => plus.remove(), {
+          once: true,
+        });
+      }
+    </script>
+  </body>
+</html>
